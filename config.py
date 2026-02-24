@@ -1,6 +1,7 @@
 """Application configuration loaded from environment variables."""
 import logging
 import os
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,10 @@ DADATA_API_KEY: str = os.getenv("DADATA_API_KEY", "")
 DADATA_SECRET_KEY: str = os.getenv("DADATA_SECRET_KEY", "")
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 DADATA_TIMEOUT: float = float(os.getenv("DADATA_TIMEOUT", "5.0"))
+
+# Regex pattern for Telegram bot token validation
+# Format: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz1234567890
+_TOKEN_PATTERN = re.compile(r"^\d{8,10}:[A-Za-z0-9_-]{30,}$")
 
 
 def validate() -> None:
@@ -23,6 +28,14 @@ def validate() -> None:
         msg = f"FATAL: Missing required ENV variables: {', '.join(missing)}"
         logger.critical(msg)
         raise RuntimeError(msg)
+
+    # Validate Telegram bot token format
+    if TELEGRAM_BOT_TOKEN and not _TOKEN_PATTERN.match(TELEGRAM_BOT_TOKEN):
+        logger.warning(
+            "TELEGRAM_BOT_TOKEN doesn't match expected format (NNNNNNNN:XXXX...). "
+            "Expected format: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz1234567890. "
+            "If you see 'TelegramUnauthorizedError', generate a new token via @BotFather."
+        )
 
     # Validate webhook URL format when in webhook mode
     if not POLLING_MODE and TELEGRAM_WEBHOOK_URL:
