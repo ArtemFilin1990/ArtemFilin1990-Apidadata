@@ -69,3 +69,15 @@ def test_clean_resource_returns_none_on_client_error(monkeypatch: pytest.MonkeyP
 
     assert ds.clean_resource("phone", "+79991234567") is None
     mock_client.clean.assert_called_once_with("phone", "+79991234567")
+
+
+def test_close_client_logs_and_clears_client(caplog: pytest.LogCaptureFixture) -> None:
+    mock_client = MagicMock()
+    mock_client.close.side_effect = RuntimeError("close failed")
+    ds._client = mock_client  # noqa: SLF001 - testing internal cache mutation
+
+    with caplog.at_level("ERROR"):
+        ds.close_client()
+
+    assert ds._client is None
+    assert "Failed to close DaData client" in caplog.text
