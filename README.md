@@ -134,3 +134,7 @@ POLLING_MODE=1
 | `clean/phone` | `cleaner.dadata.ru/api/v1/clean/phone` | Нормализация телефона |
 | `clean/passport` | `cleaner.dadata.ru/api/v1/clean/passport` | Проверка паспорта |
 | `clean/vehicle` | `cleaner.dadata.ru/api/v1/clean/vehicle` | Распознавание авто |
+
+## Дополнительные материалы
+
+- [Connectors and MCP servers](./docs/connectors-and-mcp-servers.md)
