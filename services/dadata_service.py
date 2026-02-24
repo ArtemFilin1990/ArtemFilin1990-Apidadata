@@ -35,12 +35,15 @@ def get_client() -> Dadata:
 
 def close_client() -> None:
     global _client
-    if _client is not None:
-        try:
-            _client.close()
-        except Exception:
-            pass
-        _client = None
+    client = _client
+    if client is None:
+        return
+
+    _client = None
+    try:
+        client.close()
+    except Exception:
+        logger.exception("Failed to close DaData client")
 
 
 def find_party(
