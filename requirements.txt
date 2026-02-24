@@ -1,4 +1,5 @@
-fastapi
-uvicorn
-pyTelegramBotAPI
-dadata
+fastapi>=0.110.0,<1.0.0
+uvicorn>=0.23.0,<1.0.0
+pyTelegramBotAPI>=4.16.0,<5.0.0
+dadata>=25.0.0,<26.0.0
+pytest>=9.0.0,<10.0.0
