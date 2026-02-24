@@ -1,0 +1,17 @@
+meta:
+  environment: python
+  toolchain:
+    name: pip
+    version: 3.11
+
+build:
+  requirementsPath: requirements.txt
+  useCache: true
+
+run:
+  scriptName: server.py
+  main: server.py
+  port: 8000
+  watchers:
+    - path: .
+      extensions: ['.py', '.env']
