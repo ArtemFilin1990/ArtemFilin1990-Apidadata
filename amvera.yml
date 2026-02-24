@@ -9,9 +9,9 @@ build:
   useCache: true
 
 run:
-  scriptName: server.py
-  main: server.py
-  port: 8000
-  watchers:
-    - path: .
-      extensions: ['.py', '.env']
+scriptName: app.py
+main: app.py
+port: 8000
+watchers:
+  - path: .
+    extensions: ['.py', '.env']
