@@ -278,6 +278,8 @@ def _handle_company_action(call: Any) -> None:
 
     if action == "tax":
         text = formatters.fmt_taxes(party)
+    elif action == "score":
+        text = formatters.fmt_scoring(party)
     elif action == "debt":
         text = formatters.fmt_debts(party)
     elif action == "court":

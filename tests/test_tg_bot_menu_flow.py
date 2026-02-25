@@ -87,3 +87,31 @@ def test_send_chunks_sends_fallback_for_empty_text() -> None:
     args, _ = tg_bot.get_bot().send_message.call_args
     assert args[0] == 321
     assert "Не удалось сформировать ответ" in args[1]
+
+
+def test_main_menu_has_separate_ooo_and_ip_buttons() -> None:
+    tg_bot = _reload_tg_bot()
+
+    inline_keyboard = tg_bot.keyboards.main_menu().to_dict()["inline_keyboard"]
+    callback_data = [button["callback_data"] for row in inline_keyboard for button in row]
+
+    assert "m:ooo" in callback_data
+    assert "m:ip" in callback_data
+    assert "m:person" in callback_data
+    assert "m:other" in callback_data
+
+
+def test_company_score_action_sends_scoring_card() -> None:
+    tg_bot = _reload_tg_bot()
+    tg_bot._safe_party = MagicMock(return_value={"data": {"inn": "7707083893"}})
+    tg_bot.formatters.fmt_scoring = MagicMock(return_value="SCORE-CARD")
+
+    call = SimpleNamespace(
+        id="cb-score",
+        data="c:score:7707083893",
+        message=SimpleNamespace(chat=SimpleNamespace(id=111)),
+    )
+    tg_bot.handle_company_action(call)
+
+    tg_bot.formatters.fmt_scoring.assert_called_once()
+    tg_bot.get_bot().send_message.assert_called_once_with(111, "SCORE-CARD", reply_markup=None)
