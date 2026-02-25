@@ -39,11 +39,18 @@ def _affiliated_cache_key(query: str, **kwargs: object) -> str:
 def get_client() -> Dadata:
     global _client
     if _client is None:
-        _client = Dadata(
-            config.DADATA_API_KEY,
-            config.DADATA_SECRET_KEY,
-            timeout=config.DADATA_TIMEOUT,
-        )
+        try:
+            _client = Dadata(
+                config.DADATA_API_KEY,
+                config.DADATA_SECRET_KEY,
+                timeout=config.DADATA_TIMEOUT,
+            )
+        except TypeError:
+            logger.warning(
+                "Installed dadata client does not support 'timeout' init argument; "
+                "falling back to default client timeout"
+            )
+            _client = Dadata(config.DADATA_API_KEY, config.DADATA_SECRET_KEY)
     return _client
 
 
@@ -255,4 +262,3 @@ def check_npd_status(inn: str, request_date: date | None = None) -> Optional[dic
     except (HTTPError, URLError, TimeoutError, ValueError):
         logger.exception("FNS NPD status check failed for inn=%s", inn)
         return None
-
