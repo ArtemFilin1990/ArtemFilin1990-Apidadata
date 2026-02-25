@@ -12,6 +12,24 @@ def test_validate_missing_required_vars():
             config.validate()
 
 
+
+
+def test_validate_whitespace_required_vars_are_missing():
+    """Whitespace-only required vars are treated as missing."""
+    env = {
+        "TELEGRAM_BOT_TOKEN": "   ",
+        "DADATA_API_KEY": "test_key",
+        "DADATA_SECRET_KEY": "test_secret",
+        "POLLING_MODE": "1",
+    }
+    with mock.patch.dict(os.environ, env, clear=True):
+        import importlib
+        import config
+        importlib.reload(config)
+
+        with pytest.raises(RuntimeError, match="Missing required ENV variables: TELEGRAM_BOT_TOKEN"):
+            config.validate()
+
 def test_validate_token_format_warning(caplog):
     """Validate warns if TELEGRAM_BOT_TOKEN has wrong format."""
     env = {
