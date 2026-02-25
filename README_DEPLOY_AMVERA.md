@@ -5,6 +5,14 @@
 - старт в Amvera — через `server.py` (читает `PORT`, запускает `uvicorn`),
 - режимы бота: `webhook` (по умолчанию) и `polling` (`POLLING_MODE=1`).
 
+## 0) Проверьте источник кода в Amvera (иначе server.py не найдётся)
+
+В разделе репозитория Amvera укажите:
+- `GitHub repo: ArtemFilin1990/ArtemFilin1990-Apidadata`
+- `branch: main`
+
+Если выкладываете архив — убедитесь, что в корне архива лежат `server.py`, `app.py` и остальные файлы (без лишней папки `Apidadata/` или `Apidadata-main/`). После смены источника нажмите **Собрать (build)**, затем **Применить (deploy)**.
+
 ## 1) Подготовьте ключи и токены
 
 Нужны:
