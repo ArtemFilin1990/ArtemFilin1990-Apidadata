@@ -27,18 +27,23 @@ class TokenBucket:
         self._lock = asyncio.Lock()
 
     async def acquire(self):
-        async with self._lock:
-            now = time.monotonic()
-            elapsed = now - self._last
-            self._tokens = min(self.capacity, self._tokens + elapsed * self.rate)
-            self._last = now
-            if self._tokens < 1:
-                wait = (1 - self._tokens) / self.rate
-                await asyncio.sleep(wait)
-                self._tokens = 0
-                self._last = time.monotonic()
-            else:
-                self._tokens -= 1
+        while True:
+            wait_time = 0.0
+            async with self._lock:
+                now = time.monotonic()
+                elapsed = now - self._last
+                self._tokens = min(self.capacity, self._tokens + elapsed * self.rate)
+                self._last = now
+
+                if self._tokens >= 1.0:
+                    self._tokens -= 1.0
+                    return
+
+                # Compute wait time but do NOT sleep inside the lock
+                wait_time = (1.0 - self._tokens) / self.rate
+
+            if wait_time > 0:
+                await asyncio.sleep(wait_time)
 
 
 class DaDataService:
@@ -64,12 +69,18 @@ class DaDataService:
             "X-Secret": DADATA_SECRET_KEY,
         }
 
-        self.session = aiohttp.ClientSession()
+        self.session: aiohttp.ClientSession | None = None
         self.bucket = TokenBucket(rate=10, capacity=10)
 
         self.company_cache = TTLCache(maxsize=1000, ttl=timedelta(days=7).total_seconds())
         self.affiliated_cache = TTLCache(maxsize=1000, ttl=timedelta(days=7).total_seconds())
         self.clean_cache = TTLCache(maxsize=1000, ttl=timedelta(hours=24).total_seconds())
+
+    def _get_session(self) -> aiohttp.ClientSession:
+        """Return the aiohttp session, creating it lazily inside the event loop."""
+        if self.session is None or self.session.closed:
+            self.session = aiohttp.ClientSession()
+        return self.session
 
     # ------------------------------------------------------------------ #
     #  Low-level request with retry + backoff                            #
@@ -88,7 +99,7 @@ class DaDataService:
 
         while retries < max_retries:
             try:
-                async with self.session.post(url, headers=headers,
+                async with self._get_session().post(url, headers=headers,
                                              data=json.dumps(data)) as resp:
                     if resp.status == 200:
                         result = await resp.json()
@@ -187,4 +198,5 @@ class DaDataService:
 
     # ------------------------------------------------------------------ #
     async def close_session(self):
-        await self.session.close()
+        if self.session is not None and not self.session.closed:
+            await self.session.close()
