@@ -45,17 +45,7 @@ def get_client() -> Dadata:
                 config.DADATA_SECRET_KEY,
                 timeout=config.DADATA_TIMEOUT,
             )
-        except TypeError as exc:
-            err = str(exc)
-            if "timeout" not in err or "unexpected keyword argument" not in err:
-                raise
 
-            logger.warning(
-                "Installed dadata client does not support constructor timeout; "
-                "setting dadata.settings.TIMEOUT_SEC=%s and creating client without timeout arg",
-                config.DADATA_TIMEOUT,
-            )
-            dadata_settings.TIMEOUT_SEC = config.DADATA_TIMEOUT
             _client = Dadata(config.DADATA_API_KEY, config.DADATA_SECRET_KEY)
     return _client
 
