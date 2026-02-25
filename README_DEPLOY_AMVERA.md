@@ -32,19 +32,36 @@ cp .env.example .env
 Опционально для временного fallback:
 - `POLLING_MODE=1` — если webhook временно недоступен.
 
-## 4) Настройте run.scriptName
+## 4) Проверьте структуру файлов в контейнере (критично)
+
+Причина ошибки `can't open file '/app/app.py'` часто не в `run.scriptName`, а в том, что проект попал в контейнер с лишней вложенной папкой (например, `/app/Apidadata-main/app.py` вместо `/app/app.py`).
+
+В рабочем варианте после распаковки должно быть так:
+
+```text
+/app/server.py
+/app/app.py
+/app/web.py
+/app/config.py
+/app/tg_bot.py
+/app/services/...
+/app/ui/...
+```
+
+Что проверить:
+- если деплой из GitHub-репозитория — используйте корень репозитория (в этом репо файлы уже лежат корректно в корне);
+- если деплой из zip/артефакта — перепакуйте архив без верхней папки `Apidadata-main/`, чтобы файлы лежали сразу в корне архива.
+
+## 5) Настройте run.scriptName
 
 Основной режим (рекомендуется):
 - `run.scriptName = server.py`
 
 Это запускает `uvicorn` и корректно поднимает HTTP webhook-сервис.
 
-Аварийное восстановление при неправильной точке входа:
-- если в логах ошибка вида `can't open file '/app/app.py'`, значит Amvera пытается запустить несуществующий файл;
-- временно переключите `run.scriptName = bot.py`, чтобы убрать цикл падений;
-- затем верните `run.scriptName = server.py` после проверки, что в корне есть `app.py` и `server.py`.
+Если в логах ошибка вида `can't open file '/app/app.py'`, сначала проверьте структуру файлов в контейнере (пункт выше). Переключение entrypoint не исправит проблему, если `app.py` отсутствует по пути `/app/app.py`.
 
-## 5) Установите webhook Telegram
+## 6) Установите webhook Telegram
 
 Удалить старый webhook:
 
@@ -58,14 +75,16 @@ curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/deleteWebhook"
 curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<your-domain>/tg/<secret-path>"
 ```
 
-## 6) Диагностика типовых ошибок
+## 7) Диагностика типовых ошибок
 
 ### `can't open file '/app/app.py'`
-Причина: неверный `run.scriptName` в Amvera.
+Причина: в контейнер попал архив с вложенной папкой (например, `Apidadata-main/`), и `app.py` оказался не по пути `/app/app.py`.
 
 Решение:
-1. Срочно поставить `bot.py` (стабилизация старта),
-2. Затем переключить обратно на `server.py` для webhook-режима.
+1. Перепроверьте источник деплоя (лучше из GitHub-репозитория напрямую),
+2. Если деплой из zip — перепакуйте без верхней папки,
+3. Убедитесь, что в контейнере есть `/app/server.py` и `/app/app.py`,
+4. Оставьте `run.scriptName = server.py`.
 
 ### `TelegramUnauthorizedError`
 Причина: недействительный/отозванный токен.
