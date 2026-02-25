@@ -6,7 +6,7 @@ from typing import Any, Literal, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from dadata import Dadata
+from dadata import Dadata, settings as dadata_settings
 
 import config
 from services.cache import aff_cache, party_cache
@@ -45,11 +45,7 @@ def get_client() -> Dadata:
                 config.DADATA_SECRET_KEY,
                 timeout=config.DADATA_TIMEOUT,
             )
-        except TypeError:
-            logger.warning(
-                "Installed dadata client does not support 'timeout' init argument; "
-                "falling back to default client timeout"
-            )
+
             _client = Dadata(config.DADATA_API_KEY, config.DADATA_SECRET_KEY)
     return _client
 
