@@ -107,3 +107,29 @@ def test_npd_tool_validates_12_digit_inn() -> None:
     tg_bot.get_bot().send_message.assert_called()
     args, _ = tg_bot.get_bot().send_message.call_args
     assert "12 цифр" in args[1]
+
+
+def test_score_company_action_returns_scoring_report() -> None:
+    tg_bot = _reload_tg_bot()
+    tg_bot.ds.find_party = MagicMock(return_value={
+        "data": {
+            "inn": "7707083893",
+            "state": {"status": "ACTIVE", "registration_date": 946684800000},
+            "finance": {"revenue": 1000000, "income": 100000, "debt": 0, "penalty": 0},
+            "management": {"name": "Иванов И.И."},
+            "address": {"value": "г. Москва"},
+        }
+    })
+
+    call = SimpleNamespace(
+        id="cb-score",
+        data="c:score:7707083893",
+        message=SimpleNamespace(chat=SimpleNamespace(id=321)),
+    )
+
+    tg_bot.handle_company_action(call)
+
+    tg_bot.get_bot().send_message.assert_called()
+    args, _ = tg_bot.get_bot().send_message.call_args
+    assert "Скоринг контрагента" in args[1]
+    tg_bot.get_bot().answer_callback_query.assert_called_once_with("cb-score")

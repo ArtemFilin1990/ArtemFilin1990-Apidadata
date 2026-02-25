@@ -45,7 +45,8 @@ def get_client() -> Dadata:
                 config.DADATA_SECRET_KEY,
                 timeout=config.DADATA_TIMEOUT,
             )
-
+        except TypeError:
+            logger.warning("Dadata SDK without timeout argument detected; fallback to default constructor")
             _client = Dadata(config.DADATA_API_KEY, config.DADATA_SECRET_KEY)
     return _client
 

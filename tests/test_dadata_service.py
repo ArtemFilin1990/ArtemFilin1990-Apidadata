@@ -168,7 +168,7 @@ def test_get_client_falls_back_without_timeout_for_newer_sdk(
     def _fake_dadata(*args, **kwargs):
         calls.append((args, kwargs))
         if "timeout" in kwargs:
-
+            raise TypeError("unexpected keyword argument: timeout")
         return _Client()
 
     monkeypatch.setattr(ds, "_client", None)

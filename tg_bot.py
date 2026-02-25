@@ -10,6 +10,7 @@ import telebot
 
 import config
 from services import dadata_service as ds
+from services.scoring import build_score_report
 from services.inn_utils import normalize_inn, validate_inn
 from ui import formatters
 from ui import keyboards
@@ -187,6 +188,8 @@ def _handle_company_action(call: telebot.types.CallbackQuery) -> None:
         text = formatters.fmt_courts(party)
     elif action == "aff":
         text = formatters.fmt_affiliated(_safe_affiliated(inn))
+    elif action == "score":
+        text = formatters.fmt_score_report(build_score_report(party))
     elif action == "more":
         get_bot().send_message(chat_id, "Дополнительно:", reply_markup=keyboards.company_more(inn))
         get_bot().answer_callback_query(call.id)

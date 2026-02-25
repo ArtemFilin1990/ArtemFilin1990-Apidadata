@@ -420,6 +420,60 @@ def fmt_docs(party: dict) -> str:
     return "\n".join(lines)
 
 
+def fmt_score_report(report: dict) -> str:
+    lines = ["<b>📈 Скоринг контрагента (MVP)</b>"]
+    lines.append(f"ИНН: <code>{h(report.get('inn') or '—')}</code>")
+    lines.append(f"Скор: <b>{h(report.get('score'))}</b> / 100")
+    lines.append(f"Класс: <b>{h(report.get('grade') or '—')}</b>")
+    lines.append(f"Решение: <b>{h(report.get('decision') or '—')}</b>")
+    lines.append(f"Уверенность: <b>{h(report.get('confidence') or '—')}</b>")
+
+    subscores = report.get("subscores") or {}
+    if subscores:
+        lines.append("")
+        lines.append("<b>Субскоринги</b>")
+        labels = {
+            "legal": "Юридика",
+            "fin": "Финансы",
+            "court": "Суды",
+            "enforce": "Исполнения",
+            "behavior": "Поведение",
+        }
+        for key in ["legal", "fin", "court", "enforce", "behavior"]:
+            if key in subscores:
+                lines.append(f"• {labels[key]}: {h(subscores.get(key))}")
+
+    flags = report.get("flags") or []
+    lines.append("")
+    lines.append("<b>Флаги</b>")
+    if flags:
+        for flag in flags:
+            lines.append(f"• {h(flag)}")
+    else:
+        lines.append("• Нет критичных флагов")
+
+    reasons = report.get("reasons_top") or []
+    if reasons:
+        lines.append("")
+        lines.append("<b>Причины (top)</b>")
+        for reason in reasons[:10]:
+            lines.append(f"• {h(reason)}")
+
+    freshness = report.get("freshness") or {}
+    if freshness:
+        lines.append("")
+        lines.append("<b>Актуальность источников</b>")
+        for source, value in freshness.items():
+            lines.append(f"• {h(source)}: {h(value)}")
+
+    missing = report.get("missing") or []
+    if missing:
+        lines.append("")
+        lines.append(f"<b>Недостающие источники</b>: {h(', '.join(missing))}")
+
+    return "\n".join(lines)
+
+
 def fmt_party_json(party: dict) -> str:
     """Return pretty-printed JSON string for file export."""
     return json.dumps(party, ensure_ascii=False, indent=2)

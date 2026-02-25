@@ -21,3 +21,10 @@ def test_other_tools_menu_has_core_tools() -> None:
 
     assert "📱 Телефон" in texts
     assert "🏠 Адрес" in texts
+
+
+def test_company_actions_has_scoring_button() -> None:
+    kb = keyboards.company_actions("7707083893")
+    texts = [btn.text for row in kb.keyboard for btn in row]
+
+    assert "📈 Скоринг" in texts

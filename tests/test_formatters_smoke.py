@@ -12,6 +12,7 @@ from ui.formatters import (
     fmt_docs,
     fmt_email_clean,
     fmt_finance,
+    fmt_score_report,
     fmt_founders,
     fmt_geolocate,
     fmt_iplocate,
@@ -334,3 +335,20 @@ def test_fmt_npd_status_success():
     result = fmt_npd_status({"status": True, "message": "inn является плательщиком"}, "027714145906")
     assert "✅" in result
     assert "027714145906" in result
+
+
+def test_fmt_score_report_smoke():
+    result = fmt_score_report({
+        "inn": "7707083893",
+        "score": 72,
+        "grade": "B",
+        "decision": "APPROVE",
+        "confidence": "MED",
+        "flags": ["HAS_ARBITRATION_CASES"],
+        "subscores": {"legal": 80, "fin": 65, "court": 55, "enforce": 90, "behavior": 75},
+        "reasons_top": ["Компания старше 3 лет"],
+        "freshness": {"registry": "2026-02-25"},
+        "missing": ["bankruptcy"],
+    })
+    assert "Скоринг" in result
+    assert "7707083893" in result

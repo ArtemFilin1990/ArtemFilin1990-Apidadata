@@ -54,6 +54,7 @@ def company_actions(inn: str) -> types.InlineKeyboardMarkup:
         types.InlineKeyboardButton("📉 Долги", callback_data=f"c:debt:{inn}"),
         types.InlineKeyboardButton("🔗 Аффилированность", callback_data=f"c:aff:{inn}"),
     )
+    kb.add(types.InlineKeyboardButton("📈 Скоринг", callback_data=f"c:score:{inn}"))
     kb.add(types.InlineKeyboardButton("➕ Дополнительно", callback_data=f"c:more:{inn}"))
     return kb
 
