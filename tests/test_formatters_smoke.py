@@ -21,6 +21,7 @@ from ui.formatters import (
     fmt_party_card,
     fmt_passport_clean,
     fmt_person_inn,
+    fmt_scoring,
     fmt_suggest_address,
     fmt_suggest_party,
     fmt_taxes,
@@ -156,6 +157,12 @@ def test_fmt_managers_fallback_to_management():
 def test_fmt_finance_no_data():
     result = fmt_finance(_minimal_party())
     assert "недоступны" in result.lower()
+
+
+def test_fmt_scoring_no_crash():
+    result = fmt_scoring(_minimal_party())
+    assert isinstance(result, str)
+    assert "Скоринг" in result
 
 
 def test_fmt_licenses_empty():

@@ -53,11 +53,14 @@ except Exception:
 def main_menu() -> Any:
     kb = types.InlineKeyboardMarkup(row_width=2)
     kb.add(
-        types.InlineKeyboardButton("🏢 Компания/ИП", callback_data="m:ooo"),
-        types.InlineKeyboardButton("👤 Физлицо", callback_data="m:person"),
+        types.InlineKeyboardButton("🏢 ООО по ИНН", callback_data="m:ooo"),
+        types.InlineKeyboardButton("🧑‍💼 ИП по ИНН", callback_data="m:ip"),
     )
     kb.add(
+        types.InlineKeyboardButton("👤 Физлицо по ИНН", callback_data="m:person"),
         types.InlineKeyboardButton("🔎 Поиск компании", callback_data="m:search"),
+    )
+    kb.add(
         types.InlineKeyboardButton("🧰 Прочие инструменты", callback_data="m:other"),
     )
     return kb
@@ -92,14 +95,17 @@ def other_tools_menu() -> Any:
 def company_actions(inn: str) -> Any:
     kb = types.InlineKeyboardMarkup(row_width=2)
     kb.add(
+        types.InlineKeyboardButton("📈 Скоринг", callback_data=f"c:score:{inn}"),
         types.InlineKeyboardButton("💸 Налоги", callback_data=f"c:tax:{inn}"),
-        types.InlineKeyboardButton("⚖️ Суды", callback_data=f"c:court:{inn}"),
     )
     kb.add(
+        types.InlineKeyboardButton("⚖️ Суды", callback_data=f"c:court:{inn}"),
         types.InlineKeyboardButton("📉 Долги", callback_data=f"c:debt:{inn}"),
-        types.InlineKeyboardButton("🔗 Аффилированность", callback_data=f"c:aff:{inn}"),
     )
-    kb.add(types.InlineKeyboardButton("➕ Дополнительно", callback_data=f"c:more:{inn}"))
+    kb.add(
+        types.InlineKeyboardButton("🔗 Аффилированность", callback_data=f"c:aff:{inn}"),
+        types.InlineKeyboardButton("➕ Дополнительно", callback_data=f"c:more:{inn}"),
+    )
     return kb
 
 

@@ -358,6 +358,45 @@ def fmt_finance(party: dict) -> str:
     return "\n".join(lines)
 
 
+def fmt_scoring(party: dict) -> str:
+    data = party.get("data") or {}
+    finance = data.get("finance") or {}
+    debt = float(finance.get("debt") or 0)
+    penalty = float(finance.get("penalty") or 0)
+    income = finance.get("income")
+    revenue = finance.get("revenue")
+
+    score = 100
+    factors: list[str] = []
+    status = _safe(data, "state", "status") or ""
+    if status and status != "ACTIVE":
+        score -= 35
+        factors.append(f"Статус: {h(STATUS_MAP.get(status, status))}")
+    if data.get("invalid"):
+        score -= 25
+        factors.append("Есть недостоверные сведения")
+    if debt > 0:
+        score -= 20
+        factors.append(f"Недоимка: {fmt_money(debt)}")
+    if penalty > 0:
+        score -= 10
+        factors.append(f"Штрафы: {fmt_money(penalty)}")
+    score = max(0, min(100, score))
+
+    level = "🟢 Низкий риск" if score >= 75 else "🟡 Средний риск" if score >= 45 else "🔴 Высокий риск"
+    lines = ["<b>📈 Скоринг</b>", f"Балл: <b>{score}/100</b>", f"Уровень: {level}"]
+    if income is not None:
+        lines.append(f"Доход: {fmt_money(income)}")
+    if revenue is not None:
+        lines.append(f"Оборот: {fmt_money(revenue)}")
+    lines.append("Факторы:")
+    if factors:
+        lines.extend([f"• {f}" for f in factors])
+    else:
+        lines.append("• Существенных рисков не выявлено.")
+    return "\n".join(lines)
+
+
 def fmt_licenses(party: dict) -> str:
     data = party.get("data") or {}
     licenses = data.get("licenses") or []
