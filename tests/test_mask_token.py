@@ -17,12 +17,17 @@ from app import mask_token  # noqa: E402
 def test_mask_token_replaces_bot_token() -> None:
     url = "https://api.ewerest.ru/tg/1234567890:ABCDEFGHIJ_klmnopqrstuvwxyz12345"
     assert "1234567890" not in mask_token(url)
-    assert "***:***" in mask_token(url)
+    assert mask_token(url) == "https://api.ewerest.ru/tg/***"
 
 
 def test_mask_token_preserves_plain_text() -> None:
     text = "https://api.ewerest.ru/tg/"
     assert mask_token(text) == text
+
+
+def test_mask_token_hides_webhook_secret_path() -> None:
+    text = "https://api.ewerest.ru/tg/super-secret-path"
+    assert mask_token(text) == "https://api.ewerest.ru/tg/***"
 
 
 def test_mask_token_empty_string() -> None:

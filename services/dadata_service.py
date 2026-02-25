@@ -45,7 +45,14 @@ def get_client() -> Dadata:
                 config.DADATA_SECRET_KEY,
                 timeout=config.DADATA_TIMEOUT,
             )
-
+        except TypeError as exc:
+            if "timeout" not in str(exc):
+                raise
+            logger.warning(
+                "Dadata() does not support timeout argument; using global TIMEOUT_SEC=%s fallback",
+                config.DADATA_TIMEOUT,
+            )
+            dadata_settings.TIMEOUT_SEC = config.DADATA_TIMEOUT
             _client = Dadata(config.DADATA_API_KEY, config.DADATA_SECRET_KEY)
     return _client
 

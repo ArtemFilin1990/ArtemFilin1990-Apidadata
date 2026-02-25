@@ -23,10 +23,11 @@ executor: ThreadPoolExecutor | None = None
 _polling_thread: Thread | None = None
 
 _TOKEN_RE = re.compile(r"\d{8,10}:[A-Za-z0-9_-]{30,}")
+_WEBHOOK_SECRET_RE = re.compile(r"(/tg/)[^/?#]+")
 
 
 def mask_token(text: str) -> str:
-    return _TOKEN_RE.sub("***:***", text)
+    return _WEBHOOK_SECRET_RE.sub(r"\1***", _TOKEN_RE.sub("***:***", text))
 
 
 def _configure_webhook() -> None:
