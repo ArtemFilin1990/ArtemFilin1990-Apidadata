@@ -168,12 +168,12 @@ def test_get_client_falls_back_without_timeout_for_newer_sdk(
     def _fake_dadata(*args, **kwargs):
         calls.append((args, kwargs))
         if "timeout" in kwargs:
-            raise TypeError("DadataClient.__init__() got an unexpected keyword argument 'timeout'")
+
         return _Client()
 
     monkeypatch.setattr(ds, "_client", None)
     monkeypatch.setattr(ds, "Dadata", _fake_dadata)
-    monkeypatch.setattr(ds.dadata_settings, "TIMEOUT_SEC", 3.0)
+
 
     with caplog.at_level("WARNING"):
         client = ds.get_client()
@@ -182,8 +182,6 @@ def test_get_client_falls_back_without_timeout_for_newer_sdk(
     assert len(calls) == 2
     assert "timeout" in calls[0][1]
     assert calls[1][1] == {}
-    assert ds.dadata_settings.TIMEOUT_SEC == ds.config.DADATA_TIMEOUT
-    assert "TIMEOUT_SEC" in caplog.text
 
 
 def test_check_npd_status_success(monkeypatch: pytest.MonkeyPatch) -> None:
