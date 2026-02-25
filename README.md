@@ -72,7 +72,7 @@ TELEGRAM_WEBHOOK_URL=https://your-domain.example/tg/your-secret-path
 ### 5. Запустите приложение
 
 ```bash
-python server.py
+python app.py
 ```
 
 - Приложение работает в режиме webhook и должно быть запущено как HTTP-сервис.

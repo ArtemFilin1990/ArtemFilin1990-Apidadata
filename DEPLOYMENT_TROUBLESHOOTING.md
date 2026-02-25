@@ -13,8 +13,8 @@
 
 Проверочная структура в контейнере:
 ```
-/app/server.py
 /app/app.py
+/app/server.py
 /app/web.py
 /app/config.py
 /app/tg_bot.py
@@ -28,17 +28,17 @@
 3. Проверьте `amvera.yml`:
 ```yaml
 run:
-  scriptName: server.py
-  main: server.py
+  scriptName: app.py
+  main: app.py
 ```
 
-Файл `server.py` запускает uvicorn с приложением из `app.py`, поэтому оба файла должны оказаться в корне `/app`.
+Файл `app.py` теперь может запускаться напрямую через uvicorn (в `if __name__ == "__main__"`), поэтому для Amvera рекомендуется `scriptName: app.py`.
 
 #### Для других платформ (Vercel, Render, Railway и т.д.)
 
-**Вариант 1: Использование server.py (рекомендуется)**
+**Вариант 1: Использование app.py (рекомендуется)**
 ```bash
-python server.py
+python app.py
 ```
 
 **Вариант 2: Прямой запуск через uvicorn**
@@ -48,7 +48,7 @@ uvicorn app:app --host 0.0.0.0 --port $PORT
 
 **Вариант 3: Для Procfile (Heroku, Render)**
 ```
-web: python server.py
+web: python app.py
 ```
 
 ### Структура проекта
@@ -215,12 +215,12 @@ cp .env.example .env
 
 # Запуск в polling режиме (для разработки)
 export POLLING_MODE=1
-python server.py
+python app.py
 
 # Запуск в webhook режиме (для production)
 export POLLING_MODE=0
 export TELEGRAM_WEBHOOK_URL=https://your-domain.com/tg/secret
-python server.py
+python app.py
 ```
 
 ### 2. Проверка endpoints
