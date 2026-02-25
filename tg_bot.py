@@ -95,7 +95,7 @@ def _send_chunks(chat_id: int, text: str, reply_markup: Any | None = None) -> No
 
 def _safe_party(inn: str, type_filter: str | None = None) -> dict | None:
     try:
-        return ds.find_party(inn, type=type_filter)
+        return ds.find_party(inn, type=type_filter, branch_type="MAIN")
     except Exception:
         logger.exception("find_party failed for %s", inn)
         return None
@@ -165,6 +165,7 @@ def _handle_tool_prompt(call: telebot.types.CallbackQuery) -> None:
         "iplocate": "Введите IP-адрес.",
         "geolocate": "Введите координаты 'lat,lon' (через запятую).",
         "suggest_address": "Введите начало адреса для подсказок.",
+        "npd": "Введите ИНН физлица для проверки статуса самозанятого.",
     }
     get_bot().send_message(chat_id, prompts.get(tool, "Введите запрос."))
     get_bot().answer_callback_query(call.id)
@@ -299,6 +300,12 @@ def _handle_text(message: telebot.types.Message) -> None:
                         reply = "Некорректные координаты."
             elif tool == "suggest_address":
                 reply = formatters.fmt_suggest_address(ds.suggest_address(text))
+            elif tool == "npd":
+                inn = normalize_inn(text)
+                if not validate_inn(inn) or len(inn) != 12:
+                    reply = "Введите корректный ИНН физлица (12 цифр)."
+                else:
+                    reply = formatters.fmt_npd_status(ds.check_npd_status(inn), inn)
             else:
                 reply = "Неизвестный инструмент."
         except Exception:

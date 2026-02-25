@@ -1,7 +1,10 @@
 """DaData API wrapper with caching."""
 import json
 import logging
+from datetime import date
 from typing import Any, Literal, Optional
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from dadata import Dadata
 
@@ -10,14 +13,25 @@ from services.cache import aff_cache, party_cache
 
 logger = logging.getLogger(__name__)
 
+
+NPD_STATUS_URL = "https://statusnpd.nalog.ru/api/v1/tracker/taxpayer_status"
+
 _client: Optional[Dadata] = None
 
 BranchType = Literal["MAIN", "BRANCH"]
 PartyType = Literal["LEGAL", "INDIVIDUAL"]
+PartyStatus = Literal["ACTIVE", "LIQUIDATING", "LIQUIDATED", "BANKRUPT", "REORGANIZING"]
+AffiliatedScope = Literal["FOUNDERS", "MANAGERS"]
 
 
 def _party_cache_key(query: str, **kwargs: object) -> str:
     """Build stable cache key for find_party query + filters."""
+    payload = {"query": query, **kwargs}
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def _affiliated_cache_key(query: str, **kwargs: object) -> str:
+    """Build stable cache key for find_affiliated query + filters."""
     payload = {"query": query, **kwargs}
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
@@ -53,7 +67,11 @@ def find_party(
     kpp: str | None = None,
     branch_type: BranchType | None = "MAIN",
     type: PartyType | None = None,
+    status: list[PartyStatus] | None = None,
 ) -> Optional[dict]:
+    if not query or len(query) > 300:
+        raise ValueError("query must be non-empty and up to 300 characters")
+
     if count is not None and not (1 <= count <= 300):
         raise ValueError("count must be in range 1..300")
 
@@ -66,6 +84,8 @@ def find_party(
         params["branch_type"] = branch_type
     if type is not None:
         params["type"] = type
+    if status:
+        params["status"] = status
 
     cache_key = _party_cache_key(query, **params)
     cached = party_cache.get(cache_key)
@@ -79,12 +99,31 @@ def find_party(
     return None
 
 
-def find_affiliated(inn: str) -> list[dict]:
-    cached = aff_cache.get(inn)
+def find_affiliated(
+    query: str,
+    *,
+    count: int | None = None,
+    scope: list[AffiliatedScope] | None = None,
+) -> list[dict]:
+    if not query or len(query) > 300:
+        raise ValueError("query must be non-empty and up to 300 characters")
+
+    if count is not None and not (1 <= count <= 300):
+        raise ValueError("count must be in range 1..300")
+
+    params: dict[str, object] = {}
+    if count is not None:
+        params["count"] = count
+    if scope:
+        params["scope"] = scope
+
+    cache_key = _affiliated_cache_key(query, **params)
+    cached = aff_cache.get(cache_key)
     if cached is not None:
         return cached
-    result: list[dict] = get_client().find_affiliated(inn) or []
-    aff_cache.set(inn, result)
+
+    result: list[dict] = get_client().find_affiliated(query, **params) or []
+    aff_cache.set(cache_key, result)
     return result
 
 
@@ -194,3 +233,26 @@ def get_daily_stats() -> Optional[dict]:
     except Exception:
         logger.exception("DaData get_daily_stats error")
         return None
+
+
+def check_npd_status(inn: str, request_date: date | None = None) -> Optional[dict]:
+    """Check NPD (self-employed) status via official FNS public API."""
+    if not inn or len(inn) > 300:
+        raise ValueError("inn must be non-empty and up to 300 characters")
+
+    date_value = (request_date or date.today()).isoformat()
+    payload = json.dumps({"inn": inn, "requestDate": date_value}, ensure_ascii=False).encode("utf-8")
+    req = Request(
+        NPD_STATUS_URL,
+        data=payload,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=config.DADATA_TIMEOUT) as response:  # nosec B310
+            body = response.read().decode("utf-8")
+            return json.loads(body)
+    except (HTTPError, URLError, TimeoutError, ValueError):
+        logger.exception("FNS NPD status check failed for inn=%s", inn)
+        return None
+

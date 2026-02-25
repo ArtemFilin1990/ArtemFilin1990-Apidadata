@@ -18,6 +18,7 @@ from ui.formatters import (
     fmt_licenses,
     fmt_managers,
     fmt_name_clean,
+    fmt_npd_status,
     fmt_party_card,
     fmt_passport_clean,
     fmt_person_inn,
@@ -323,3 +324,13 @@ def test_fmt_daily_stats_with_data():
     })
     assert "2024-10-10" in result
     assert "clean" in result
+
+
+def test_fmt_npd_status_none():
+    assert "Не удалось" in fmt_npd_status(None, "027714145906")
+
+
+def test_fmt_npd_status_success():
+    result = fmt_npd_status({"status": True, "message": "inn является плательщиком"}, "027714145906")
+    assert "✅" in result
+    assert "027714145906" in result
