@@ -6,7 +6,7 @@ from typing import Any, Literal, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from dadata import Dadata
+from dadata import Dadata, settings as dadata_settings
 
 import config
 from services.cache import aff_cache, party_cache
@@ -39,11 +39,24 @@ def _affiliated_cache_key(query: str, **kwargs: object) -> str:
 def get_client() -> Dadata:
     global _client
     if _client is None:
-        _client = Dadata(
-            config.DADATA_API_KEY,
-            config.DADATA_SECRET_KEY,
-            timeout=config.DADATA_TIMEOUT,
-        )
+        try:
+            _client = Dadata(
+                config.DADATA_API_KEY,
+                config.DADATA_SECRET_KEY,
+                timeout=config.DADATA_TIMEOUT,
+            )
+        except TypeError as exc:
+            err = str(exc)
+            if "timeout" not in err or "unexpected keyword argument" not in err:
+                raise
+
+            logger.warning(
+                "Installed dadata client does not support constructor timeout; "
+                "setting dadata.settings.TIMEOUT_SEC=%s and creating client without timeout arg",
+                config.DADATA_TIMEOUT,
+            )
+            dadata_settings.TIMEOUT_SEC = config.DADATA_TIMEOUT
+            _client = Dadata(config.DADATA_API_KEY, config.DADATA_SECRET_KEY)
     return _client
 
 
@@ -255,4 +268,3 @@ def check_npd_status(inn: str, request_date: date | None = None) -> Optional[dic
     except (HTTPError, URLError, TimeoutError, ValueError):
         logger.exception("FNS NPD status check failed for inn=%s", inn)
         return None
-

@@ -133,6 +133,59 @@ def test_find_affiliated_cache_key_includes_filters(monkeypatch: pytest.MonkeyPa
     assert mock_client.find_affiliated.call_count == 2
 
 
+def test_get_client_passes_timeout_when_supported(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Client:
+        pass
+
+    created: dict[str, object] = {}
+
+    def _fake_dadata(token: str, secret: str, timeout: float) -> _Client:
+        created["token"] = token
+        created["secret"] = secret
+        created["timeout"] = timeout
+        return _Client()
+
+    monkeypatch.setattr(ds, "_client", None)
+    monkeypatch.setattr(ds, "Dadata", _fake_dadata)
+
+    client = ds.get_client()
+
+    assert isinstance(client, _Client)
+    assert created["token"] == ds.config.DADATA_API_KEY
+    assert created["secret"] == ds.config.DADATA_SECRET_KEY
+    assert created["timeout"] == ds.config.DADATA_TIMEOUT
+
+
+def test_get_client_falls_back_without_timeout_for_newer_sdk(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _Client:
+        pass
+
+    calls: list[tuple[tuple, dict]] = []
+
+    def _fake_dadata(*args, **kwargs):
+        calls.append((args, kwargs))
+        if "timeout" in kwargs:
+            raise TypeError("DadataClient.__init__() got an unexpected keyword argument 'timeout'")
+        return _Client()
+
+    monkeypatch.setattr(ds, "_client", None)
+    monkeypatch.setattr(ds, "Dadata", _fake_dadata)
+    monkeypatch.setattr(ds.dadata_settings, "TIMEOUT_SEC", 3.0)
+
+    with caplog.at_level("WARNING"):
+        client = ds.get_client()
+
+    assert isinstance(client, _Client)
+    assert len(calls) == 2
+    assert "timeout" in calls[0][1]
+    assert calls[1][1] == {}
+    assert ds.dadata_settings.TIMEOUT_SEC == ds.config.DADATA_TIMEOUT
+    assert "TIMEOUT_SEC" in caplog.text
+
+
 def test_check_npd_status_success(monkeypatch: pytest.MonkeyPatch) -> None:
     class _Response:
         def __enter__(self):
@@ -154,3 +207,16 @@ def test_check_npd_status_success(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_check_npd_status_rejects_empty_inn() -> None:
     with pytest.raises(ValueError, match="inn must be non-empty and up to 300 characters"):
         ds.check_npd_status("")
+
+
+
+
+def test_get_client_reraises_unrelated_type_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _fake_dadata(*args, **kwargs):
+        raise TypeError("broken constructor")
+
+    monkeypatch.setattr(ds, "_client", None)
+    monkeypatch.setattr(ds, "Dadata", _fake_dadata)
+
+    with pytest.raises(TypeError, match="broken constructor"):
+        ds.get_client()

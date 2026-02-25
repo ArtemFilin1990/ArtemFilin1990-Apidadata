@@ -2,7 +2,7 @@
 
 Документ синхронизирован с текущим кодом репозитория:
 - HTTP-приложение — `FastAPI` (`app.py`),
-- старт в Amvera — через `server.py` (читает `PORT`, запускает `uvicorn`),
+- старт в Amvera — через `app.py` (читает `PORT`, запускает `uvicorn`),
 - режимы бота: `webhook` (по умолчанию) и `polling` (`POLLING_MODE=1`).
 
 ## 1) Подготовьте ключи и токены
@@ -39,8 +39,8 @@ cp .env.example .env
 В рабочем варианте после распаковки должно быть так:
 
 ```text
-/app/server.py
 /app/app.py
+/app/server.py
 /app/web.py
 /app/config.py
 /app/tg_bot.py
@@ -55,7 +55,7 @@ cp .env.example .env
 ## 5) Настройте run.scriptName
 
 Основной режим (рекомендуется):
-- `run.scriptName = server.py`
+- `run.scriptName = app.py`
 
 Это запускает `uvicorn` и корректно поднимает HTTP webhook-сервис.
 
@@ -83,8 +83,8 @@ curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<y
 Решение:
 1. Перепроверьте источник деплоя (лучше из GitHub-репозитория напрямую),
 2. Если деплой из zip — перепакуйте без верхней папки,
-3. Убедитесь, что в контейнере есть `/app/server.py` и `/app/app.py`,
-4. Оставьте `run.scriptName = server.py`.
+3. Убедитесь, что в контейнере есть `/app/app.py` (и опционально `/app/server.py`),
+4. Используйте `run.scriptName = app.py`.
 
 ### `TelegramUnauthorizedError`
 Причина: недействительный/отозванный токен.

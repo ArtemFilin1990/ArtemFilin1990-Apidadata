@@ -135,3 +135,9 @@ async def telegram_webhook(secret_path: str, request: Request) -> Response:
     else:
         logger.error("Executor is None — cannot process update")
     return Response(status_code=200)
+
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info")
