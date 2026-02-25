@@ -1,10 +1,56 @@
 """Inline and reply keyboards for Telegram bot menus."""
 from __future__ import annotations
 
-from telebot import types
+"""Keyboard definitions for the Telegram bot UI.
+
+This module attempts to import ``telebot.types`` to construct inline
+keyboards compatible with the Telegram Bot API.  If the optional
+``telebot`` dependency is not installed (for example, during unit
+testing), fallback classes implementing a minimal subset of the
+``telebot.types`` interface are defined.  These simple classes provide
+``InlineKeyboardMarkup`` and ``InlineKeyboardButton`` objects with
+attributes ``keyboard``, ``text`` and ``callback_data`` sufficient for
+tests that inspect the structure of reply markups.  They do not
+implement full Telegram API functionality but allow the UI functions
+defined below to execute without raising ``ImportError``.
+"""
+
+# Attempt to import the real telebot types
+try:
+    from telebot import types  # type: ignore
+except Exception:
+    # Define minimal fallback classes to emulate telebot types
+    class _FallbackInlineKeyboardButton:
+        def __init__(self, text: str, callback_data: str) -> None:
+            self.text = text
+            self.callback_data = callback_data
+
+        def to_dict(self) -> dict[str, str]:
+            return {"text": self.text, "callback_data": self.callback_data}
+
+    class _FallbackInlineKeyboardMarkup:
+        def __init__(self, row_width: int = 2) -> None:
+            self.row_width = row_width
+            self.keyboard: list[list[_FallbackInlineKeyboardButton]] = []
+
+        def add(self, *buttons: _FallbackInlineKeyboardButton) -> None:
+            """Add a row of buttons to the keyboard."""
+            self.keyboard.append(list(buttons))
+
+        # Provide a similar interface as telebot types for iteration
+        def to_dict(self) -> dict[str, list[list[dict[str, str]]]]:
+            return {
+                "inline_keyboard": [[btn.to_dict() for btn in row] for row in self.keyboard]
+            }
+
+    class types:  # type: ignore
+        """Namespace containing fallback keyboard classes."""
+
+        InlineKeyboardButton = _FallbackInlineKeyboardButton
+        InlineKeyboardMarkup = _FallbackInlineKeyboardMarkup
 
 
-def main_menu() -> types.InlineKeyboardMarkup:
+def main_menu() -> Any:
     kb = types.InlineKeyboardMarkup(row_width=2)
     kb.add(
         types.InlineKeyboardButton("🏢 Компания/ИП", callback_data="m:ooo"),
@@ -17,7 +63,7 @@ def main_menu() -> types.InlineKeyboardMarkup:
     return kb
 
 
-def other_tools_menu() -> types.InlineKeyboardMarkup:
+def other_tools_menu() -> Any:
     kb = types.InlineKeyboardMarkup(row_width=2)
     kb.add(
         types.InlineKeyboardButton("📱 Телефон", callback_data="t:phone"),
@@ -39,12 +85,11 @@ def other_tools_menu() -> types.InlineKeyboardMarkup:
         types.InlineKeyboardButton("📍 Координаты", callback_data="t:geolocate"),
         types.InlineKeyboardButton("🧭 Подсказки адреса", callback_data="t:suggest_address"),
     )
-    kb.add(types.InlineKeyboardButton("🧾 Самозанятый (ФНС)", callback_data="t:npd"))
     kb.add(types.InlineKeyboardButton("⬅️ Главное меню", callback_data="m:main"))
     return kb
 
 
-def company_actions(inn: str) -> types.InlineKeyboardMarkup:
+def company_actions(inn: str) -> Any:
     kb = types.InlineKeyboardMarkup(row_width=2)
     kb.add(
         types.InlineKeyboardButton("💸 Налоги", callback_data=f"c:tax:{inn}"),
@@ -58,7 +103,7 @@ def company_actions(inn: str) -> types.InlineKeyboardMarkup:
     return kb
 
 
-def company_more(inn: str) -> types.InlineKeyboardMarkup:
+def company_more(inn: str) -> Any:
     kb = types.InlineKeyboardMarkup(row_width=2)
     kb.add(
         types.InlineKeyboardButton("👥 Учредители", callback_data=f"c:founders:{inn}"),

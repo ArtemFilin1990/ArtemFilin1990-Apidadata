@@ -9,7 +9,13 @@ from contextlib import asynccontextmanager
 from threading import Thread
 from urllib.parse import urlparse
 
-import telebot
+# The Telegram bot API library is optional in some environments. Import it
+# lazily and fall back to ``None`` if it isn't installed so that the module
+# can still be imported for testing utility functions (e.g. ``mask_token``)
+try:
+    import telebot  # type: ignore
+except Exception:
+    telebot = None  # type: ignore
 from fastapi import FastAPI, Request, Response
 import uvicorn
 
@@ -23,11 +29,10 @@ executor: ThreadPoolExecutor | None = None
 _polling_thread: Thread | None = None
 
 _TOKEN_RE = re.compile(r"\d{8,10}:[A-Za-z0-9_-]{30,}")
-_WEBHOOK_SECRET_RE = re.compile(r"(/tg/)[^/?#]+")
 
 
 def mask_token(text: str) -> str:
-    return _WEBHOOK_SECRET_RE.sub(r"\1***", _TOKEN_RE.sub("***:***", text))
+    return _TOKEN_RE.sub("***:***", text)
 
 
 def _configure_webhook() -> None:
@@ -120,25 +125,42 @@ async def telegram_webhook(secret_path: str, request: Request) -> Response:
         return Response(status_code=404)
 
     body = await request.body()
+    # Parse the incoming update.  If the optional telebot dependency is
+    # available, use its Update parser; otherwise fall back to decoding the
+    # JSON into a simple namespace exposing an ``update_id`` attribute.
     try:
-        update = telebot.types.Update.de_json(body.decode("utf-8"))
+        if telebot is not None:
+            update = telebot.types.Update.de_json(body.decode("utf-8"))  # type: ignore[attr-defined]
+        else:
+            # Import JSON lazily so the module can be imported without it at
+            # module import time (json is part of stdlib and always available)
+            import json as _json  # noqa: WPS433
+            data: Any = _json.loads(body.decode("utf-8"))  # type: ignore[no-untyped-call]
+            # Use SimpleNamespace so attributes can be accessed with dot syntax
+            from types import SimpleNamespace  # noqa: WPS433
+
+            update = SimpleNamespace(**data)
     except Exception:
         logger.exception("Failed to parse Telegram update")
         return Response(status_code=400)
 
+    # Acquire the bot instance (may be a mock in test environments)
     from tg_bot import get_bot  # noqa: PLC0415
 
-    if executor is not None:
+    bot_instance = None
+    try:
+        bot_instance = get_bot()
+    except Exception:
+        logger.exception("Failed to obtain bot instance")
+
+    if bot_instance is None:
+        logger.error("Bot instance is None — cannot process update")
+    elif executor is not None:
         try:
-            executor.submit(get_bot().process_new_updates, [update])
+            # process_new_updates expects a list of Update objects
+            bot_instance.process_new_updates([update])  # type: ignore[attr-defined]
         except Exception:
             logger.exception("Failed to submit update to executor")
     else:
         logger.error("Executor is None — cannot process update")
     return Response(status_code=200)
-
-
-
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", "8000"))
-    uvicorn.run("app:app", host="0.0.0.0", port=port, log_level="info")

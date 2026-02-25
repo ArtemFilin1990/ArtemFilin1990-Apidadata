@@ -72,7 +72,7 @@ TELEGRAM_WEBHOOK_URL=https://your-domain.example/tg/your-secret-path
 ### 5. Запустите приложение
 
 ```bash
-python app.py
+python server.py
 ```
 
 - Приложение работает в режиме webhook и должно быть запущено как HTTP-сервис.
@@ -95,20 +95,6 @@ POLLING_MODE=1
    - `DADATA_SECRET_KEY`
 
 2. Используйте `requirements.txt` для автоматической установки зависимостей.
-
-Подробную инструкцию смотрите в [README_DEPLOY_AMVERA.md](./README_DEPLOY_AMVERA.md).
-
-## Устранение проблем деплоя
-
-Если возникли проблемы при развертывании бота (ошибки с точкой входа, токеном, webhook и т.д.), смотрите подробное руководство:
-
-📖 **[DEPLOYMENT_TROUBLESHOOTING.md](./DEPLOYMENT_TROUBLESHOOTING.md)**
-
-Типичные проблемы:
-- ❌ `can't open file '/app/app.py'` — неверная точка входа
-- ❌ `TelegramUnauthorizedError` — неверный или отозванный токен
-- ❌ Webhook не получает обновления — неправильный URL
-- ❌ Отсутствующие переменные окружения
 
 ## Кэширование
 
@@ -134,7 +120,3 @@ POLLING_MODE=1
 | `clean/phone` | `cleaner.dadata.ru/api/v1/clean/phone` | Нормализация телефона |
 | `clean/passport` | `cleaner.dadata.ru/api/v1/clean/passport` | Проверка паспорта |
 | `clean/vehicle` | `cleaner.dadata.ru/api/v1/clean/vehicle` | Распознавание авто |
-
-## Дополнительные материалы
-
-- [Connectors and MCP servers](./docs/connectors-and-mcp-servers.md)

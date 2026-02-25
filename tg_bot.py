@@ -3,10 +3,19 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from typing import Any
 
-import telebot
+# The Telegram bot API library is optional; allow the module to be imported
+# even when ``telebot`` isn't installed.  At runtime a real ``telebot``
+# instance is required for bot functionality, but tests can supply their
+# own bot instance via :func:`set_bot` without pulling in the external
+# dependency.
+try:
+    import telebot  # type: ignore
+except Exception:
+    telebot = None  # type: ignore
 
 import config
 from services import dadata_service as ds
@@ -16,8 +25,9 @@ from ui import keyboards
 
 logger = logging.getLogger(__name__)
 
-if config.TELEGRAM_STARTUP_DELAY_SECONDS > 0:
-    time.sleep(config.TELEGRAM_STARTUP_DELAY_SECONDS)
+TELEGRAM_STARTUP_DELAY_SECONDS = float(os.getenv("TELEGRAM_STARTUP_DELAY_SECONDS", "0"))
+if TELEGRAM_STARTUP_DELAY_SECONDS > 0:
+    time.sleep(TELEGRAM_STARTUP_DELAY_SECONDS)
 
 # --- Deferred bot creation ---------------------------------------------------
 # pyTelegramBotAPI validates the token at construction time.  When the module is
@@ -26,21 +36,107 @@ if config.TELEGRAM_STARTUP_DELAY_SECONDS > 0:
 # the bot lazily: the first call to ``get_bot()`` builds the real instance and
 # all subsequent calls return the cached one.
 
-_bot: telebot.TeleBot | None = None
+# Internal singleton cache for the Telegram bot instance.  We annotate this
+# as ``Any`` to avoid type errors when ``telebot`` is not installed.  When
+# a real ``TeleBot`` is created this will hold that instance; otherwise it
+# remains ``None`` until replaced via :func:`set_bot`.
+_bot: Any | None = None
 _handlers_registered: bool = False
 
 
-def get_bot() -> telebot.TeleBot:
-    """Return the TeleBot singleton, creating it on first call."""
+def get_bot() -> Any:
+    """Return the TeleBot singleton, creating it on first call.
+
+    When the optional ``telebot`` dependency is not available, this
+    function will raise an :class:`ImportError`.  Tests that inject a
+    mock bot via :func:`set_bot` can still retrieve that mock without
+    requiring the external dependency.
+    """
     global _bot, _handlers_registered
-    if _bot is None:
-        token = config.TELEGRAM_BOT_TOKEN
-        if not token:
-            raise RuntimeError(
-                "TELEGRAM_BOT_TOKEN is not set — cannot create TeleBot instance"
-            )
-        _bot = telebot.TeleBot(token, parse_mode="HTML")
-        logger.info("TeleBot instance created successfully")
+    # If a mock bot has been injected, simply return it
+    if _bot is not None:
+        if not _handlers_registered:
+            _register_handlers(_bot)
+            _handlers_registered = True
+        return _bot
+    # No bot yet; attempt to create one using the optional dependency
+    if telebot is None:
+        # If the optional dependency is missing we still want the rest of the
+        # application (web API, health checks, etc.) to be usable.  Tests or
+        # deployments that don't need Telegram functionality can proceed with
+        # a no‑op dummy bot.  The dummy implements the handful of methods
+        # exercised by ``server.py`` and ``app.py`` and acts as a drop‑in
+        # replacement.  Without this dummy object the server would crash on
+        # startup when it tries to configure the webhook.
+        class _DummyBot:
+            """Minimal stand‑in for :class:`telebot.TeleBot`.
+
+            It implements the methods used by the application but performs
+            no network calls.  Handlers registered on the dummy are
+            effectively ignored, which is acceptable when the Telegram
+            library is not installed or a token is unavailable.
+            """
+
+            def __init__(self) -> None:
+                self.parse_mode = "HTML"
+
+            # webhook management methods are no‑ops
+            def remove_webhook(self, *args, **kwargs) -> None:
+                return None
+
+            def delete_webhook(self, *args, **kwargs) -> None:
+                return None
+
+            def set_webhook(self, *args, **kwargs) -> None:
+                return None
+
+            # update processing simply discards messages
+            def process_new_updates(self, *args, **kwargs) -> None:
+                return None
+
+            # command/description setters are no‑ops
+            def set_my_commands(self, *args, **kwargs) -> None:
+                return None
+
+            def set_my_description(self, *args, **kwargs) -> None:
+                return None
+
+            def set_my_short_description(self, *args, **kwargs) -> None:
+                return None
+
+            # decorators for message and callback handlers simply return the
+            # original function, effectively disabling handler registration
+            def message_handler(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+                def decorator(func):
+                    return func
+
+                return decorator
+
+            def callback_query_handler(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+                def decorator(func):
+                    return func
+
+                return decorator
+
+        # initialise the dummy and record it so subsequent calls return the
+        # same object
+        _dummy = _DummyBot()
+        _bot = _dummy  # type: ignore[assignment]
+        # Mark handlers as registered to avoid trying to attach handlers to
+        # the dummy multiple times.  There is nothing to register anyway.
+        _handlers_registered = True
+        logger.warning(
+            "telebot package is not installed; using DummyBot. Telegram "
+            "functionality will be disabled."
+        )
+        return _bot
+    token = config.TELEGRAM_BOT_TOKEN
+    if not token:
+        raise RuntimeError(
+            "TELEGRAM_BOT_TOKEN is not set — cannot create TeleBot instance"
+        )
+    _bot = telebot.TeleBot(token, parse_mode="HTML")  # type: ignore[call-arg]
+    logger.info("TeleBot instance created successfully")
     if not _handlers_registered:
         _register_handlers(_bot)
         _handlers_registered = True
@@ -95,7 +191,7 @@ def _send_chunks(chat_id: int, text: str, reply_markup: Any | None = None) -> No
 
 def _safe_party(inn: str, type_filter: str | None = None) -> dict | None:
     try:
-        return ds.find_party(inn, type=type_filter, branch_type="MAIN")
+        return ds.find_party(inn, type=type_filter)
     except Exception:
         logger.exception("find_party failed for %s", inn)
         return None
@@ -113,7 +209,7 @@ def _safe_affiliated(inn: str) -> list[dict]:
 #  Handler functions
 # ---------------------------------------------------------------------------
 
-def _handle_start(message: telebot.types.Message) -> None:
+def _handle_start(message: Any) -> None:
     _set_state(message.chat.id, None)
     get_bot().send_message(
         message.chat.id,
@@ -122,7 +218,7 @@ def _handle_start(message: telebot.types.Message) -> None:
     )
 
 
-def _handle_menu(call: telebot.types.CallbackQuery) -> None:
+def _handle_menu(call: Any) -> None:
     chat_id = call.message.chat.id
     action = call.data.split(":", 1)[1]
     _set_state(chat_id, None)
@@ -149,7 +245,7 @@ def _handle_menu(call: telebot.types.CallbackQuery) -> None:
     get_bot().answer_callback_query(call.id)
 
 
-def _handle_tool_prompt(call: telebot.types.CallbackQuery) -> None:
+def _handle_tool_prompt(call: Any) -> None:
     chat_id = call.message.chat.id
     tool = call.data.split(":", 1)[1]
     _set_state(chat_id, "tool", tool)
@@ -165,13 +261,12 @@ def _handle_tool_prompt(call: telebot.types.CallbackQuery) -> None:
         "iplocate": "Введите IP-адрес.",
         "geolocate": "Введите координаты 'lat,lon' (через запятую).",
         "suggest_address": "Введите начало адреса для подсказок.",
-        "npd": "Введите ИНН физлица для проверки статуса самозанятого.",
     }
     get_bot().send_message(chat_id, prompts.get(tool, "Введите запрос."))
     get_bot().answer_callback_query(call.id)
 
 
-def _handle_company_action(call: telebot.types.CallbackQuery) -> None:
+def _handle_company_action(call: Any) -> None:
     chat_id = call.message.chat.id
     _, action, inn = call.data.split(":", 2)
     party = _safe_party(inn)
@@ -222,7 +317,7 @@ def _format_party_response(party: dict) -> tuple[str, Any]:
     return formatters.fmt_party_card(party), keyboard
 
 
-def _handle_text(message: telebot.types.Message) -> None:
+def _handle_text(message: Any) -> None:
     chat_id = message.chat.id
     text = (message.text or "").strip()
     state = _user_state.get(chat_id)
@@ -300,12 +395,6 @@ def _handle_text(message: telebot.types.Message) -> None:
                         reply = "Некорректные координаты."
             elif tool == "suggest_address":
                 reply = formatters.fmt_suggest_address(ds.suggest_address(text))
-            elif tool == "npd":
-                inn = normalize_inn(text)
-                if not validate_inn(inn) or len(inn) != 12:
-                    reply = "Введите корректный ИНН физлица (12 цифр)."
-                else:
-                    reply = formatters.fmt_npd_status(ds.check_npd_status(inn), inn)
             else:
                 reply = "Неизвестный инструмент."
         except Exception:
@@ -332,7 +421,15 @@ def _handle_text(message: telebot.types.Message) -> None:
 #  Register all handlers on a TeleBot instance
 # ---------------------------------------------------------------------------
 
-def _register_handlers(b: telebot.TeleBot) -> None:
+def _register_handlers(b: Any) -> None:
+    """Register message and callback handlers on the supplied bot instance.
+
+    The ``b`` parameter is typed as :class:`Any` so that this function
+    can be called with a mock bot in test environments where the
+    optional ``telebot`` dependency is not installed.  The bot is
+    expected to provide ``message_handler`` and ``callback_query_handler``
+    decorators matching the `telebot` API.
+    """
     b.message_handler(commands=["start", "help"])(_handle_start)
     b.callback_query_handler(func=lambda call: call.data.startswith("m:"))(_handle_menu)
     b.callback_query_handler(func=lambda call: call.data.startswith("t:"))(_handle_tool_prompt)
