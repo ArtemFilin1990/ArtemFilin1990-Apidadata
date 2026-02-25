@@ -22,6 +22,43 @@ Authorization: Token <DADATA_TOKEN>
 
 `query` — ИНН (10 цифр юр. лицо, 12 цифр ИП) или ОГРН.
 
+Ограничения DaData для `query`:
+- не пустой;
+- длина не более 300 символов.
+
+Дополнительные параметры запроса:
+
+| Параметр | Тип | Описание |
+|---|---|---|
+| `count` | number | Количество результатов (до 300) |
+| `kpp` | string | КПП филиала |
+| `branch_type` | string | `MAIN` или `BRANCH` |
+| `type` | string | `LEGAL` или `INDIVIDUAL` |
+| `status` | string[] | Фильтр по статусу (`ACTIVE`, `LIQUIDATING`, `LIQUIDATED`, `BANKRUPT`, `REORGANIZING`) |
+
+## Python SDK (dadata-py)
+
+```python
+from dadata import Dadata
+
+token = "${API_KEY}"
+with Dadata(token) as dadata:
+    result = dadata.find_by_id(
+        "party",
+        "7707083893",
+        type="LEGAL",
+        branch_type="MAIN",
+        count=10,
+    )
+```
+
+`dadata-py` отправляет `Content-Type: application/json` и `Accept: application/json` автоматически, а тело запроса кодируется как UTF-8.
+
+## Лимиты
+
+- Максимальная частота запросов: **30 запросов/сек** с одного IP.
+- Суточный лимит: в рамках вашего тарифного плана.
+
 ## CORS
 
 Dadata allows `Access-Control-Allow-Origin: *`, so direct browser requests work without a proxy.
@@ -156,3 +193,86 @@ export interface DadataCompany {
 |----------|---------|
 | LEGAL | Юридическое лицо |
 | INDIVIDUAL | Индивидуальный предприниматель |
+
+---
+
+# Dadata findAffiliated/party API
+
+## Endpoint
+
+```
+POST https://suggestions.dadata.ru/suggestions/api/4_1/rs/findAffiliated/party
+```
+
+## Headers
+
+```
+Content-Type: application/json
+Accept: application/json
+Authorization: Token <DADATA_TOKEN>
+```
+
+## Request body
+
+```json
+{ "query": "7736207543" }
+```
+
+Дополнительные параметры:
+
+| Параметр | Тип | Описание |
+|---|---|---|
+| `query` | string | ИНН учредителя или руководителя, не пустой, до 300 символов |
+| `count` | number | Количество результатов, 1..300 |
+| `scope` | string[] | Область поиска: `FOUNDERS`, `MANAGERS` или обе |
+
+## Python SDK (dadata-py)
+
+```python
+from dadata import Dadata
+
+token = "${API_KEY}"
+with Dadata(token) as dadata:
+    result = dadata.find_affiliated(
+        "7736207543",
+        count=10,
+        scope=["FOUNDERS", "MANAGERS"],
+    )
+```
+
+## Лимиты
+
+- Максимальная частота запросов: **30 запросов/сек** с одного IP.
+- Максимальная частота создания новых соединений: **60 в минуту** с одного IP.
+- Суточный лимит: в рамках вашего тарифного плана.
+
+
+---
+
+# Проверка самозанятого (API ФНС, не DaData)
+
+DaData не предоставляет отдельный сервис проверки самозанятости. Для этого используется публичный API ФНС:
+
+```
+POST https://statusnpd.nalog.ru/api/v1/tracker/taxpayer_status
+```
+
+Тело запроса (UTF-8, JSON):
+
+```json
+{ "inn": "027714145906", "requestDate": "2024-01-01" }
+```
+
+Пример ответа:
+
+```json
+{ "status": true, "message": "xxxxxxxxxxxx является плательщиком налога на профессиональный доход" }
+```
+
+```json
+{ "status": false, "message": "xxxxxxxxxxxx не является плательщиком налога на профессиональный доход" }
+```
+
+Ограничения (по предоставленным материалам):
+- API бесплатное, без гарантий стабильности;
+- ориентир по лимиту: до 2 запросов в минуту с IP.

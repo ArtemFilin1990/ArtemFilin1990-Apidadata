@@ -76,3 +76,34 @@ def test_other_callback_opens_tools_menu() -> None:
     assert args[1] == "Выберите инструмент:"
     assert kwargs["reply_markup"].to_dict() == tg_bot.keyboards.other_tools_menu().to_dict()
     tg_bot.get_bot().answer_callback_query.assert_called_once_with("cb-2")
+
+
+def test_ooo_flow_uses_legal_type_and_main_branch() -> None:
+    tg_bot = _reload_tg_bot()
+
+    call = SimpleNamespace(
+        id="cb-3",
+        data="m:ooo",
+        message=SimpleNamespace(chat=SimpleNamespace(id=999)),
+    )
+    tg_bot.handle_menu(call)
+
+    tg_bot.ds.find_party = MagicMock(return_value={"data": {"inn": "7707083893"}})
+    tg_bot.handle_text(SimpleNamespace(chat=SimpleNamespace(id=999), text="7707083893"))
+
+    tg_bot.ds.find_party.assert_called_once_with(
+        "7707083893",
+        type="LEGAL",
+        branch_type="MAIN",
+    )
+
+
+def test_npd_tool_validates_12_digit_inn() -> None:
+    tg_bot = _reload_tg_bot()
+    tg_bot._set_state(555, "tool", "npd")
+
+    tg_bot.handle_text(SimpleNamespace(chat=SimpleNamespace(id=555), text="7707083893"))
+
+    tg_bot.get_bot().send_message.assert_called()
+    args, _ = tg_bot.get_bot().send_message.call_args
+    assert "12 цифр" in args[1]

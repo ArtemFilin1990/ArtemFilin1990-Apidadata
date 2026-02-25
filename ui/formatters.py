@@ -696,3 +696,19 @@ def fmt_bank(result: Optional[dict]) -> str:
     if status:
         lines.append(f"Статус: {h(STATUS_MAP.get(status, status))}")
     return "\n".join(lines)
+
+
+def fmt_npd_status(result: Optional[dict], inn: str) -> str:
+    if not result:
+        return "⚠️ Не удалось проверить статус самозанятого. Попробуйте позже."
+
+    status = result.get("status")
+    message = h(result.get("message") or "")
+    marker = "✅" if status is True else "❌"
+    label = "Является плательщиком НПД" if status is True else "Не является плательщиком НПД"
+    return (
+        "🧾 <b>Проверка самозанятого (ФНС)</b>\n"
+        f"ИНН: <code>{h(inn)}</code>\n"
+        f"Статус: {marker} <b>{label}</b>\n"
+        f"Ответ API: {message}"
+    )

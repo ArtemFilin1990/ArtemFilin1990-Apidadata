@@ -39,6 +39,7 @@ def other_tools_menu() -> types.InlineKeyboardMarkup:
         types.InlineKeyboardButton("📍 Координаты", callback_data="t:geolocate"),
         types.InlineKeyboardButton("🧭 Подсказки адреса", callback_data="t:suggest_address"),
     )
+    kb.add(types.InlineKeyboardButton("🧾 Самозанятый (ФНС)", callback_data="t:npd"))
     kb.add(types.InlineKeyboardButton("⬅️ Главное меню", callback_data="m:main"))
     return kb
 
