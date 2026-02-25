@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from typing import Any
 
@@ -17,9 +16,8 @@ from ui import keyboards
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_STARTUP_DELAY_SECONDS = float(os.getenv("TELEGRAM_STARTUP_DELAY_SECONDS", "0"))
-if TELEGRAM_STARTUP_DELAY_SECONDS > 0:
-    time.sleep(TELEGRAM_STARTUP_DELAY_SECONDS)
+if config.TELEGRAM_STARTUP_DELAY_SECONDS > 0:
+    time.sleep(config.TELEGRAM_STARTUP_DELAY_SECONDS)
 
 # --- Deferred bot creation ---------------------------------------------------
 # pyTelegramBotAPI validates the token at construction time.  When the module is
