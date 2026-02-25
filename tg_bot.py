@@ -185,6 +185,8 @@ def _set_state(chat_id: int, kind: str | None, value: str | None = None) -> None
 
 def _send_chunks(chat_id: int, text: str, reply_markup: Any | None = None) -> None:
     chunks = formatters.chunk_text(text)
+    if not chunks:
+        chunks = ["Не удалось сформировать ответ. Попробуйте другой запрос."]
     for idx, chunk in enumerate(chunks):
         get_bot().send_message(chat_id, chunk, reply_markup=reply_markup if idx == 0 else None)
 

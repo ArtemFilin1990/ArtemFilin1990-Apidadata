@@ -76,3 +76,14 @@ def test_other_callback_opens_tools_menu() -> None:
     assert args[1] == "Выберите инструмент:"
     assert kwargs["reply_markup"].to_dict() == tg_bot.keyboards.other_tools_menu().to_dict()
     tg_bot.get_bot().answer_callback_query.assert_called_once_with("cb-2")
+
+
+def test_send_chunks_sends_fallback_for_empty_text() -> None:
+    tg_bot = _reload_tg_bot()
+
+    tg_bot._send_chunks(321, "")
+
+    tg_bot.get_bot().send_message.assert_called_once()
+    args, _ = tg_bot.get_bot().send_message.call_args
+    assert args[0] == 321
+    assert "Не удалось сформировать ответ" in args[1]
