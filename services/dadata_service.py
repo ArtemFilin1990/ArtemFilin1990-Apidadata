@@ -1,8 +1,3 @@
-"""DaData API wrapper with caching."""
-import json
-import logging
-from typing import Any, Literal, Optional
-
 """DaData API wrapper with caching.
 
 This module attempts to import the external :mod:`dadata` package and expose
@@ -14,6 +9,9 @@ not available, while still providing clear feedback to callers attempting
 to use it.  Tests can also monkeypatch the ``Dadata`` name to supply a
 mock implementation without triggering an import error on module import.
 """
+import json
+import logging
+from typing import Any, Literal, Optional
 
 try:
     # The real client from the dadata package
