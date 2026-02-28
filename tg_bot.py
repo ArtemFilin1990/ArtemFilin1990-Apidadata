@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import time
 from typing import Any
 
@@ -174,13 +175,15 @@ class _BotProxy:
 bot = _BotProxy()  # type: ignore[assignment]
 
 _user_state: dict[int, tuple[str, str]] = {}
+_user_state_lock = threading.Lock()
 
 
 def _set_state(chat_id: int, kind: str | None, value: str | None = None) -> None:
-    if kind is None:
-        _user_state.pop(chat_id, None)
-    else:
-        _user_state[chat_id] = (kind, value or "")
+    with _user_state_lock:
+        if kind is None:
+            _user_state.pop(chat_id, None)
+        else:
+            _user_state[chat_id] = (kind, value or "")
 
 
 def _send_chunks(chat_id: int, text: str, reply_markup: Any | None = None) -> None:
@@ -324,7 +327,8 @@ def _format_party_response(party: dict) -> tuple[str, Any]:
 def _handle_text(message: Any) -> None:
     chat_id = message.chat.id
     text = (message.text or "").strip()
-    state = _user_state.get(chat_id)
+    with _user_state_lock:
+        state = _user_state.get(chat_id)
 
     if state and state[0] == "party":
         type_filter = "LEGAL" if state[1] == "ooo" else "INDIVIDUAL"

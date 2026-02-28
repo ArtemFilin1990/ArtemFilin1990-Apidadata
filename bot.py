@@ -13,7 +13,6 @@ import logging
 import os
 import re
 import urllib.request
-import urllib.error
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
