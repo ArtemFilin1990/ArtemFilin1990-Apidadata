@@ -1,6 +1,8 @@
 """Inline and reply keyboards for Telegram bot menus."""
 from __future__ import annotations
 
+from typing import Any
+
 """Keyboard definitions for the Telegram bot UI.
 
 This module attempts to import ``telebot.types`` to construct inline
