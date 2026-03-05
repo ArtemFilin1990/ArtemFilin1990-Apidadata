@@ -345,9 +345,7 @@ def _handle_card_action(call: Any) -> None:
         text = formatters.fmt_management_detail(party)
     elif action == "okved":
         text = formatters.fmt_okved_detail(party)
-    elif action == "req":
-        text = formatters.fmt_requisites_text(party)
-    elif action == "copy":
+    elif action in {"req", "copy"}:
         text = formatters.fmt_requisites_text(party)
     else:
         text = "Неизвестное действие."
@@ -360,6 +358,26 @@ def _format_party_response(party: dict) -> tuple[str, Any]:
     inn = (party.get("data") or {}).get("inn") or ""
     keyboard = keyboards.company_card_actions(inn) if inn else None
     return formatters.fmt_party_card(party), keyboard
+
+
+def _suggest_and_reply(chat_id: int, text: str, not_found_msg: str) -> None:
+    """Try suggest_party by name; if single result fetch full card, else show list."""
+    try:
+        results = ds.suggest_party(text)
+    except Exception:
+        logger.exception("suggest_party failed for %s", text)
+        get_bot().send_message(chat_id, "Сервис DaData временно недоступен. Попробуйте позже.")
+        return
+    if len(results) == 1:
+        inn = (results[0].get("data") or {}).get("inn") or ""
+        if inn:
+            _search_and_reply(chat_id, inn)
+        else:
+            _send_chunks(chat_id, formatters.fmt_suggest_party(results))
+    elif results:
+        _send_chunks(chat_id, formatters.fmt_suggest_party(results))
+    else:
+        get_bot().send_message(chat_id, not_found_msg)
 
 
 def _search_and_reply(chat_id: int, query: str) -> None:
@@ -440,25 +458,7 @@ def _handle_text(message: Any) -> None:
         if is_inn_or_ogrn(query):
             _search_and_reply(chat_id, query)
         else:
-            try:
-                results = ds.suggest_party(text)
-            except Exception:
-                logger.exception("suggest_party failed for %s", text)
-                get_bot().send_message(chat_id, "Сервис DaData временно недоступен. Попробуйте позже.")
-                return
-            if len(results) == 1:
-                inn = (results[0].get("data") or {}).get("inn") or ""
-                if inn:
-                    _search_and_reply(chat_id, inn)
-                else:
-                    _send_chunks(chat_id, formatters.fmt_suggest_party(results))
-            elif results:
-                _send_chunks(chat_id, formatters.fmt_suggest_party(results))
-            else:
-                get_bot().send_message(
-                    chat_id,
-                    "Компания не найдена. Попробуйте ввести ИНН или ОГРН.",
-                )
+            _suggest_and_reply(chat_id, text, "Компания не найдена. Попробуйте ввести ИНН или ОГРН.")
         return
 
     if state and state[0] == "tool":
@@ -512,22 +512,7 @@ def _handle_text(message: Any) -> None:
     if is_inn_or_ogrn(query):
         _search_and_reply(chat_id, query)
     else:
-        try:
-            results = ds.suggest_party(text)
-        except Exception:
-            logger.exception("suggest_party failed for %s", text)
-            get_bot().send_message(chat_id, "Я понимаю ИНН/ОГРН или команды /start, /help.")
-            return
-        if len(results) == 1:
-            inn = (results[0].get("data") or {}).get("inn") or ""
-            if inn:
-                _search_and_reply(chat_id, inn)
-            else:
-                _send_chunks(chat_id, formatters.fmt_suggest_party(results))
-        elif results:
-            _send_chunks(chat_id, formatters.fmt_suggest_party(results))
-        else:
-            get_bot().send_message(chat_id, "Я понимаю ИНН/ОГРН или команды /start, /help.")
+        _suggest_and_reply(chat_id, text, "Я понимаю ИНН/ОГРН или команды /start, /help.")
 
 
 # ---------------------------------------------------------------------------

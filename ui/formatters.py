@@ -57,6 +57,14 @@ INVALIDITY_CODE_MAP: dict[str, str] = {
     "MASS_LEADER": "Массовый руководитель",
 }
 
+FIAS_LEVEL_MAP: dict[str, str] = {
+    "1": "Регион", "2": "Район", "3": "Город", "4": "Нас. пункт",
+    "5": "Эл. план. стр-ры", "6": "Эл. улично-дор. сети", "7": "Земельный участок",
+    "8": "Здание", "9": "Помещение", "10": "Помещение в помещении",
+    "65": "Планировочная структура", "91": "Новый объект",
+    "-1": "Иностранный / Не определён",
+}
+
 
 def _safe(d: Any, *keys: str, default: Any = None) -> Any:
     """Safely dig into nested dicts/None."""
@@ -513,14 +521,7 @@ def fmt_address_detail(party: dict) -> str:
 
     fias_level = addr_data.get("fias_level") or ""
     if fias_level:
-        fias_levels = {
-            "1": "Регион", "2": "Район", "3": "Город", "4": "Нас. пункт",
-            "5": "Эл. план. стр-ры", "6": "Эл. улично-дор. сети", "7": "Земельный участок",
-            "8": "Здание", "9": "Помещение", "10": "Помещение в помещении",
-            "65": "Планировочная структура", "91": "Новый объект",
-            "-1": "Иностранный / Не определён",
-        }
-        lines.append(f"Уровень ФИАС: {h(fias_levels.get(str(fias_level), str(fias_level)))}")
+        lines.append(f"Уровень ФИАС: {h(FIAS_LEVEL_MAP.get(str(fias_level), str(fias_level)))}")
 
     invalidity = addr_block.get("invalidity") or {}
     if invalidity:
