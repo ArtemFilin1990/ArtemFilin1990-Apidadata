@@ -102,7 +102,11 @@ class DaDataService:
                 async with self._get_session().post(url, headers=headers,
                                              data=json.dumps(data)) as resp:
                     if resp.status == 200:
-                        result = await resp.json()
+                        try:
+                            result = await resp.json(content_type=None)
+                        except (json.JSONDecodeError, ValueError) as e:
+                            logger.error(f"DaData JSON decode error on {url}: {e}")
+                            return None
                         if cache_key and cache is not None:
                             cache[cache_key] = result
                         return result

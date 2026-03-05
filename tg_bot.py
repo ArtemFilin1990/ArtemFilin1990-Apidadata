@@ -20,7 +20,7 @@ except Exception:
 
 import config
 from services import dadata_service as ds
-from services.inn_utils import normalize_inn, validate_inn
+from services.inn_utils import is_inn_or_ogrn, normalize_inn, validate_inn
 from ui import formatters
 from ui import keyboards
 
@@ -218,7 +218,8 @@ def _handle_start(message: Any) -> None:
     _set_state(message.chat.id, None)
     get_bot().send_message(
         message.chat.id,
-        "Выберите действие:",
+        "Проверка контрагентов — быстро, прямо в Telegram.\n"
+        "Отправьте ИНН, ОГРН или название компании.",
         reply_markup=keyboards.main_menu(),
     )
 
@@ -234,6 +235,9 @@ def _handle_menu(call: Any) -> None:
             "Главное меню:",
             reply_markup=keyboards.main_menu(),
         )
+    elif action == "check":
+        _set_state(chat_id, "search_any", "")
+        get_bot().send_message(chat_id, "Введите ИНН, ОГРН или название компании:")
     elif action in {"ooo", "ip"}:
         prompt = "Введите ИНН или ОГРН компании." if action == "ooo" else "Введите ИНН/ОГРНИП для ИП."
         _set_state(chat_id, "party", action)
@@ -318,10 +322,91 @@ def _handle_company_action(call: Any) -> None:
     get_bot().answer_callback_query(call.id)
 
 
+def _handle_card_action(call: Any) -> None:
+    chat_id = call.message.chat.id
+    parts = call.data.split(":", 2)
+    action = parts[1]
+
+    if action == "new":
+        _set_state(chat_id, None)
+        get_bot().send_message(chat_id, "Введите ИНН, ОГРН или название компании:")
+        get_bot().answer_callback_query(call.id)
+        return
+
+    inn = parts[2] if len(parts) > 2 else ""
+    party = _safe_party(inn)
+    if party is None:
+        get_bot().answer_callback_query(call.id, "Не найдено")
+        return
+
+    if action == "addr":
+        text = formatters.fmt_address_detail(party)
+    elif action == "mgmt":
+        text = formatters.fmt_management_detail(party)
+    elif action == "okved":
+        text = formatters.fmt_okved_detail(party)
+    elif action in {"req", "copy"}:
+        text = formatters.fmt_requisites_text(party)
+    else:
+        text = "Неизвестное действие."
+
+    _send_chunks(chat_id, text)
+    get_bot().answer_callback_query(call.id)
+
+
 def _format_party_response(party: dict) -> tuple[str, Any]:
     inn = (party.get("data") or {}).get("inn") or ""
-    keyboard = keyboards.company_actions(inn) if inn else None
+    keyboard = keyboards.company_card_actions(inn) if inn else None
     return formatters.fmt_party_card(party), keyboard
+
+
+def _suggest_and_reply(chat_id: int, text: str, not_found_msg: str) -> None:
+    """Try suggest_party by name; if single result fetch full card, else show list."""
+    try:
+        results = ds.suggest_party(text)
+    except Exception:
+        logger.exception("suggest_party failed for %s", text)
+        get_bot().send_message(chat_id, "Сервис DaData временно недоступен. Попробуйте позже.")
+        return
+    if len(results) == 1:
+        inn = (results[0].get("data") or {}).get("inn") or ""
+        if inn:
+            _search_and_reply(chat_id, inn)
+        else:
+            _send_chunks(chat_id, formatters.fmt_suggest_party(results))
+    elif results:
+        _send_chunks(chat_id, formatters.fmt_suggest_party(results))
+    else:
+        get_bot().send_message(chat_id, not_found_msg)
+
+
+def _search_and_reply(chat_id: int, query: str) -> None:
+    """Show searching indicator, fetch party, send card or error."""
+    indicator = get_bot().send_message(chat_id, "🔍 Ищу информацию…")
+    party = _safe_party(query)
+    if party:
+        body, keyboard = _format_party_response(party)
+        chunks = formatters.chunk_text(body)
+        if not chunks:
+            chunks = ["Не удалось сформировать ответ."]
+        try:
+            get_bot().edit_message_text(
+                chunks[0],
+                chat_id,
+                indicator.message_id,
+                reply_markup=keyboard,
+                parse_mode="HTML",
+            )
+        except Exception:
+            logger.exception("edit_message_text failed, falling back to send")
+            get_bot().send_message(chat_id, chunks[0], reply_markup=keyboard)
+        for chunk in chunks[1:]:
+            get_bot().send_message(chat_id, chunk)
+    else:
+        try:
+            get_bot().edit_message_text("Не найдено в DaData.", chat_id, indicator.message_id)
+        except Exception:
+            get_bot().send_message(chat_id, "Не найдено в DaData.")
 
 
 def _handle_text(message: Any) -> None:
@@ -365,6 +450,15 @@ def _handle_text(message: Any) -> None:
             return
         _send_chunks(chat_id, formatters.fmt_suggest_party(results))
         _set_state(chat_id, None)
+        return
+
+    if state and state[0] == "search_any":
+        _set_state(chat_id, None)
+        query = normalize_inn(text)
+        if is_inn_or_ogrn(query):
+            _search_and_reply(chat_id, query)
+        else:
+            _suggest_and_reply(chat_id, text, "Компания не найдена. Попробуйте ввести ИНН или ОГРН.")
         return
 
     if state and state[0] == "tool":
@@ -413,16 +507,12 @@ def _handle_text(message: Any) -> None:
         _set_state(chat_id, None)
         return
 
-    inn = normalize_inn(text)
-    if validate_inn(inn):
-        party = _safe_party(inn)
-        if party:
-            body, keyboard = _format_party_response(party)
-            _send_chunks(chat_id, body, reply_markup=keyboard)
-        else:
-            get_bot().send_message(chat_id, "Не найдено в DaData.")
+    # No state: try INN/OGRN first, then name search
+    query = normalize_inn(text)
+    if is_inn_or_ogrn(query):
+        _search_and_reply(chat_id, query)
     else:
-        get_bot().send_message(chat_id, "Я понимаю ИНН/ОГРН или команды /start, /help.")
+        _suggest_and_reply(chat_id, text, "Я понимаю ИНН/ОГРН или команды /start, /help.")
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +532,7 @@ def _register_handlers(b: Any) -> None:
     b.callback_query_handler(func=lambda call: call.data.startswith("m:"))(_handle_menu)
     b.callback_query_handler(func=lambda call: call.data.startswith("t:"))(_handle_tool_prompt)
     b.callback_query_handler(func=lambda call: call.data.startswith("c:"))(_handle_company_action)
+    b.callback_query_handler(func=lambda call: call.data.startswith("d:"))(_handle_card_action)
     b.message_handler(func=lambda message: True)(_handle_text)
 
 
@@ -450,4 +541,5 @@ handle_start = _handle_start
 handle_menu = _handle_menu
 handle_tool_prompt = _handle_tool_prompt
 handle_company_action = _handle_company_action
+handle_card_action = _handle_card_action
 handle_text = _handle_text
