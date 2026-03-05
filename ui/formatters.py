@@ -464,6 +464,191 @@ def fmt_party_json(party: dict) -> str:
     return json.dumps(party, ensure_ascii=False, indent=2)
 
 
+def fmt_address_detail(party: dict) -> str:
+    """Detailed address view for the counterparty card."""
+    data = party.get("data") or {}
+    addr_block = data.get("address") or {}
+    addr_data = addr_block.get("data") or {}
+    lines = ["<b>📍 Юридический адрес</b>"]
+
+    full = addr_block.get("value") or ""
+    if full:
+        lines.append(h(full))
+        lines.append("")
+
+    postal = addr_data.get("postal_code") or ""
+    if postal:
+        lines.append(f"Индекс: {h(postal)}")
+
+    region = addr_data.get("region_with_type") or addr_data.get("region") or ""
+    if region:
+        lines.append(f"Регион: {h(region)}")
+
+    area = addr_data.get("area_with_type") or ""
+    if area:
+        lines.append(f"Район: {h(area)}")
+
+    city = addr_data.get("city_with_type") or addr_data.get("city") or ""
+    if city:
+        lines.append(f"Город: {h(city)}")
+
+    settlement = addr_data.get("settlement_with_type") or ""
+    if settlement:
+        lines.append(f"Населённый пункт: {h(settlement)}")
+
+    street = addr_data.get("street_with_type") or ""
+    if street:
+        lines.append(f"Улица: {h(street)}")
+
+    house = addr_data.get("house") or ""
+    block = addr_data.get("block") or ""
+    flat = addr_data.get("flat") or ""
+    if house:
+        building = f"д. {h(house)}"
+        if block:
+            building += f", корп. {h(block)}"
+        if flat:
+            building += f", кв. {h(flat)}"
+        lines.append(building)
+
+    fias_level = addr_data.get("fias_level") or ""
+    if fias_level:
+        fias_levels = {
+            "1": "Регион", "2": "Район", "3": "Город", "4": "Нас. пункт",
+            "5": "Эл. план. стр-ры", "6": "Эл. улично-дор. сети", "7": "Земельный участок",
+            "8": "Здание", "9": "Помещение", "10": "Помещение в помещении",
+            "65": "Планировочная структура", "91": "Новый объект",
+            "-1": "Иностранный / Не определён",
+        }
+        lines.append(f"Уровень ФИАС: {h(fias_levels.get(str(fias_level), str(fias_level)))}")
+
+    invalidity = addr_block.get("invalidity") or {}
+    if invalidity:
+        inv_code = invalidity.get("code") or ""
+        if inv_code:
+            lines.append(f"⚠️ Адрес недостоверен: {h(INVALIDITY_CODE_MAP.get(inv_code, inv_code))}")
+
+    if len(lines) == 1:
+        lines.append("Адрес не указан.")
+    return "\n".join(lines)
+
+
+def fmt_okved_detail(party: dict) -> str:
+    """Primary OKVED + full list of additional OKVEDs."""
+    data = party.get("data") or {}
+    lines = ["<b>📋 ОКВЭД</b>"]
+
+    primary_code = data.get("okved") or ""
+    primary_name = data.get("okved_type") or ""
+    if primary_code:
+        primary_line = f"<b>{h(primary_code)}</b>"
+        if primary_name:
+            primary_line += f" — {h(primary_name)}"
+        primary_line += " <i>[основной]</i>"
+        lines.append(primary_line)
+
+    okveds = data.get("okveds") or []
+    additional = [o for o in okveds if not o.get("main")]
+    if additional:
+        lines.append("")
+        lines.append("Дополнительные виды деятельности:")
+        for okved in additional[:30]:
+            code = okved.get("code") or ""
+            name = okved.get("name") or ""
+            row = f"• {h(code)}"
+            if name:
+                row += f" — {h(name)}"
+            lines.append(row)
+
+    if not primary_code and not okveds:
+        lines.append("Данные по ОКВЭД не найдены.")
+
+    return "\n".join(lines)
+
+
+def fmt_management_detail(party: dict) -> str:
+    """Management record + managers list for the counterparty card."""
+    data = party.get("data") or {}
+    lines = ["<b>👤 Руководство</b>"]
+
+    mgmt = data.get("management") or {}
+    mgmt_name = mgmt.get("name") or ""
+    mgmt_post = mgmt.get("post") or ""
+    if mgmt_name:
+        row = f"<b>{h(mgmt_name)}</b>"
+        if mgmt_post:
+            row += f" — {h(mgmt_post)}"
+        lines.append(row)
+
+    managers = data.get("managers") or []
+    if managers:
+        if mgmt_name:
+            lines.append("")
+            lines.append("Список руководителей:")
+        for m in managers[:20]:
+            name = m.get("name") or m.get("fio") or "?"
+            post = m.get("post") or ""
+            inn = m.get("inn") or ""
+            inv_code = _safe(m, "invalidity", "code") or ""
+            row = f"• {h(name)}"
+            if post:
+                row += f" — {h(post)}"
+            if inn:
+                row += f" <code>{h(inn)}</code>"
+            if inv_code:
+                row += f" ⚠️{h(INVALIDITY_CODE_MAP.get(inv_code, inv_code))}"
+            lines.append(row)
+
+    if not mgmt_name and not managers:
+        lines.append("Данные о руководстве не найдены.")
+
+    return "\n".join(lines)
+
+
+def fmt_requisites_text(party: dict) -> str:
+    """Requisites formatted for clipboard / 1C import."""
+    data = party.get("data") or {}
+
+    name_d = data.get("name") or {}
+    name_str = (
+        name_d.get("short_with_opf")
+        or name_d.get("full_with_opf")
+        or party.get("value")
+        or ""
+    )
+    inn = data.get("inn") or ""
+    kpp = data.get("kpp") or ""
+    ogrn = data.get("ogrn") or ""
+    state = data.get("state") or {}
+    reg_date = fmt_date(state.get("registration_date"))
+    opf = _safe(data, "opf", "short") or ""
+    addr = _safe(data, "address", "value") or ""
+
+    lines = ["<b>💼 Реквизиты</b>", ""]
+    block_lines = []
+    if name_str:
+        block_lines.append(f"Наименование: {name_str}")
+    if opf:
+        block_lines.append(f"ОПФ: {opf}")
+    if inn:
+        block_lines.append(f"ИНН: {inn}")
+    if kpp:
+        block_lines.append(f"КПП: {kpp}")
+    if ogrn:
+        block_lines.append(f"ОГРН: {ogrn}")
+    if reg_date and reg_date != "—":
+        block_lines.append(f"Дата регистрации: {reg_date}")
+    if addr:
+        block_lines.append(f"Юр. адрес: {addr}")
+
+    if block_lines:
+        lines.append("<code>" + "\n".join(block_lines) + "</code>")
+    else:
+        lines.append("Реквизиты не найдены.")
+
+    return "\n".join(lines)
+
+
 # ── person ───────────────────────────────────────────────────────────────────
 
 def fmt_person_inn(inn: str, fns_unit: Optional[dict]) -> str:
