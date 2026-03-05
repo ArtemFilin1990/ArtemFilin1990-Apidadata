@@ -53,14 +53,9 @@ except Exception:
 
 
 def main_menu() -> Any:
-    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb = types.InlineKeyboardMarkup(row_width=1)
     kb.add(
-        types.InlineKeyboardButton("🏢 ООО по ИНН", callback_data="m:ooo"),
-        types.InlineKeyboardButton("🧑‍💼 ИП по ИНН", callback_data="m:ip"),
-    )
-    kb.add(
-        types.InlineKeyboardButton("👤 Физлицо по ИНН", callback_data="m:person"),
-        types.InlineKeyboardButton("🔎 Поиск компании", callback_data="m:search"),
+        types.InlineKeyboardButton("🔍 Проверить компанию", callback_data="m:check"),
     )
     kb.add(
         types.InlineKeyboardButton("🧰 Прочие инструменты", callback_data="m:other"),
@@ -91,6 +86,27 @@ def other_tools_menu() -> Any:
         types.InlineKeyboardButton("🧭 Подсказки адреса", callback_data="t:suggest_address"),
     )
     kb.add(types.InlineKeyboardButton("⬅️ Главное меню", callback_data="m:main"))
+    return kb
+
+
+def company_card_actions(inn: str) -> Any:
+    """Primary action buttons for the counterparty card."""
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        types.InlineKeyboardButton("📍 Адрес", callback_data=f"d:addr:{inn}"),
+        types.InlineKeyboardButton("👤 Руководство", callback_data=f"d:mgmt:{inn}"),
+    )
+    kb.add(
+        types.InlineKeyboardButton("📋 ОКВЭД", callback_data=f"d:okved:{inn}"),
+        types.InlineKeyboardButton("💼 Реквизиты", callback_data=f"d:req:{inn}"),
+    )
+    kb.add(
+        types.InlineKeyboardButton("📄 Скопировать реквизиты", callback_data=f"d:copy:{inn}"),
+    )
+    kb.add(
+        types.InlineKeyboardButton("🔍 Новый поиск", callback_data="d:new"),
+        types.InlineKeyboardButton("➕ Подробнее", callback_data=f"c:more:{inn}"),
+    )
     return kb
 
 

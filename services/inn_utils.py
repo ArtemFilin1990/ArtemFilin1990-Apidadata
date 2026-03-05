@@ -27,3 +27,22 @@ def validate_inn(inn: str) -> bool:
             and _checksum(inn, c2) == int(inn[11])
         )
     return False
+
+
+def validate_ogrn(ogrn: str) -> bool:
+    """Return True if OGRN checksum is correct (13 digits for legal entity, 15 for individual)."""
+    if not ogrn.isdigit():
+        return False
+    if len(ogrn) == 13:
+        n = int(ogrn[:12]) % 11 % 10
+        return n == int(ogrn[12])
+    if len(ogrn) == 15:
+        n = int(ogrn[:14]) % 13 % 10
+        return n == int(ogrn[14])
+    return False
+
+
+def is_inn_or_ogrn(query: str) -> bool:
+    """Return True if query (after digit-stripping) is a valid INN or OGRN."""
+    digits = normalize_inn(query)
+    return validate_inn(digits) or validate_ogrn(digits)
