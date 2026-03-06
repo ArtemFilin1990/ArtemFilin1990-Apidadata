@@ -8,10 +8,7 @@ def test_main_menu_has_expected_buttons() -> None:
     texts = [btn.text for row in kb.keyboard for btn in row]
 
     assert texts == [
-        "🏢 ООО по ИНН",
-        "🧑‍💼 ИП по ИНН",
-        "👤 Физлицо по ИНН",
-        "🔎 Поиск компании",
+        "🔍 Проверить компанию",
         "🧰 Прочие инструменты",
     ]
 

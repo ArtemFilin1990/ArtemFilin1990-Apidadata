@@ -1,15 +1,15 @@
 # Connectors and MCP servers
 
-In addition to tools you make available to the model with function calling, you can give models new capabilities using **connectors** and **remote MCP servers**.
+In addition to tools you expose through function calling, the Responses API can use **connectors** and **remote MCP servers** via the built-in `mcp` tool type.
 
-- **Connectors** are OpenAI-maintained MCP wrappers for popular services like Google Workspace or Dropbox.
-- **Remote MCP servers** are public MCP servers implementing the Model Context Protocol.
+- **Connectors** are OpenAI-maintained integrations (for example: Dropbox, Gmail, Google Drive).
+- **Remote MCP servers** are third-party servers on the public Internet implementing the Model Context Protocol (MCP).
+
+> ⚠️ Only connect to trusted servers. Any MCP tool can receive data from your prompt/context and may return untrusted output.
 
 ## Quickstart
 
-Both connectors and remote MCP servers are configured through the `mcp` tool type in the Responses API.
-
-### Remote MCP server example
+### Remote MCP server (Responses API)
 
 ```bash
 curl https://api.openai.com/v1/responses \
@@ -30,7 +30,7 @@ curl https://api.openai.com/v1/responses \
 }'
 ```
 
-### Connector example (Dropbox)
+### Connector (Dropbox)
 
 ```bash
 curl https://api.openai.com/v1/responses \
@@ -51,11 +51,11 @@ curl https://api.openai.com/v1/responses \
 }'
 ```
 
-## How it works
+## How MCP tool execution works
 
-### 1) Listing available tools
+### 1) Tool listing phase
 
-The API fetches server tools and returns an `mcp_list_tools` item.
+On first use, the API fetches available tools from the target server and places an `mcp_list_tools` item in response output.
 
 ```json
 {
@@ -70,11 +70,24 @@ The API fetches server tools and returns an `mcp_list_tools` item.
 }
 ```
 
-Use `allowed_tools` to limit imported tools and reduce cost/latency.
+If you keep this item in conversation context, the platform does not need to re-import tools on every turn.
 
-### 2) Calling tools
+#### Filtering tools
 
-When the model invokes a tool, the response includes an `mcp_call` item with call arguments and output.
+Use `allowed_tools` to reduce latency/cost and narrow model behavior.
+
+```json
+{
+  "type": "mcp",
+  "server_label": "dmcp",
+  "server_url": "https://dmcp-server.deno.dev/sse",
+  "allowed_tools": ["roll"]
+}
+```
+
+### 2) Tool call phase
+
+If the model decides to call a tool, output includes `mcp_call` with arguments and tool output.
 
 ```json
 {
@@ -86,17 +99,26 @@ When the model invokes a tool, the response includes an `mcp_call` item with cal
 }
 ```
 
-## Approvals
+## Approval flow
 
-By default, tool calls require approval. This is surfaced as `mcp_approval_request` and should be answered with `mcp_approval_response`.
+By default, MCP calls require approval.
 
-For trusted tools, configure `require_approval: "never"` (globally or per tool set) to reduce latency.
+1. Model requests a call and you receive `mcp_approval_request`.
+2. You create the next response with `mcp_approval_response` and `approve: true/false`.
+
+For trusted servers/tools you can lower friction with:
+
+- `"require_approval": "never"` (all tools), or
+- selective policy for specific tool names.
 
 ## Authentication
 
-Many MCP servers and connectors require OAuth access tokens via the `authorization` field. This token must be supplied on every request because Responses API does not store it.
+Most connectors and many remote MCP servers require OAuth access token via `authorization`.
 
-## Available connectors
+- Pass token in **every** request where the tool is used.
+- Responses API does not persist the authorization token value in returned response objects.
+
+## Available connector IDs
 
 - `connector_dropbox`
 - `connector_gmail`
@@ -107,15 +129,18 @@ Many MCP servers and connectors require OAuth access tokens via the `authorizati
 - `connector_outlookemail`
 - `connector_sharepoint`
 
-## Security notes
+## Security and safety checklist
 
-- Use trusted MCP servers only.
-- Keep approval flow for sensitive actions.
-- Validate and log third-party tool data flows.
-- Treat URLs returned by tools as untrusted until verified.
-- Review retention/residency requirements for each third-party server.
+- Connect only to trusted/official MCP server hosts.
+- Keep approvals enabled for sensitive operations.
+- Restrict `allowed_tools` to minimum required capabilities.
+- Treat URLs and payloads from MCP outputs as untrusted input.
+- Log and review data sent to third-party MCP services.
+- Validate prompt-injection risk when MCP tools can read external content.
+- Check third-party retention/residency policies (important for ZDR/Data Residency requirements).
 
 ## Usage notes
 
-- Works with Responses, Chat Completions, and Assistants APIs (model/tool compatibility varies by model).
-- Tool usage is token-billed; no separate per-call MCP fee.
+- MCP tool support depends on model compatibility.
+- Applies across Responses API and related tool-capable APIs.
+- Billing is token-based for tool schemas/tool calls; no separate per-call MCP fee in this guide context.

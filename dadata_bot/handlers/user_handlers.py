@@ -88,16 +88,21 @@ async def process_inn(message: Message, state: FSMContext, dadata_service: DaDat
         return
 
     await message.answer("🔍 Ищу информацию…")
-    data = await dadata_service.find_party_by_id(query)
+    try:
+        data = await dadata_service.find_party_by_id(query)
 
-    if data and data.get("suggestions"):
-        # Store data in FSM for inline-button callbacks
-        await state.update_data(company_data=data, company_query=query)
-        summary = format_company_summary(data)
-        await message.answer(summary, reply_markup=get_company_card_keyboard(query))
-    else:
-        await message.answer("По данному ИНН/ОГРН ничего не найдено.")
-    await state.set_state(None)
+        if data and data.get("suggestions"):
+            # Store data in FSM for inline-button callbacks
+            await state.update_data(company_data=data, company_query=query)
+            summary = format_company_summary(data)
+            await message.answer(summary, reply_markup=get_company_card_keyboard(query))
+        else:
+            await message.answer("По данному ИНН/ОГРН ничего не найдено.")
+    except Exception:
+        logger.exception("Error processing INN/OGRN query=%s", query)
+        await message.answer("Произошла ошибка при запросе данных. Попробуйте позже.")
+    finally:
+        await state.set_state(None)
 
 
 # ------------------------------------------------------------------ #
@@ -126,13 +131,17 @@ async def process_phone(message: Message, state: FSMContext, dadata_service: DaD
 
     logger.info(f"clean/phone request hash={sha256(raw)}")
     await message.answer("📱 Проверяю телефон…")
-    data = await dadata_service.clean_phone(raw)
-
-    if data:
-        await message.answer(format_phone(data), reply_markup=get_check_again_keyboard("phone"))
-    else:
-        await message.answer("Не удалось проверить телефон. Попробуйте позже.")
-    await state.set_state(None)
+    try:
+        data = await dadata_service.clean_phone(raw)
+        if data:
+            await message.answer(format_phone(data), reply_markup=get_check_again_keyboard("phone"))
+        else:
+            await message.answer("Не удалось проверить телефон. Попробуйте позже.")
+    except Exception:
+        logger.exception("Error processing phone raw=%s", sha256(raw))
+        await message.answer("Произошла ошибка при запросе данных. Попробуйте позже.")
+    finally:
+        await state.set_state(None)
 
 
 # -- Паспорт -------------------------------------------------------- #
@@ -152,13 +161,17 @@ async def process_passport(message: Message, state: FSMContext, dadata_service: 
 
     logger.info(f"clean/passport request hash={sha256(raw)}")
     await message.answer("🪪 Проверяю паспорт…")
-    data = await dadata_service.clean_passport(raw)
-
-    if data:
-        await message.answer(format_passport(data), reply_markup=get_check_again_keyboard("passport"))
-    else:
-        await message.answer("Не удалось проверить паспорт. Попробуйте позже.")
-    await state.set_state(None)
+    try:
+        data = await dadata_service.clean_passport(raw)
+        if data:
+            await message.answer(format_passport(data), reply_markup=get_check_again_keyboard("passport"))
+        else:
+            await message.answer("Не удалось проверить паспорт. Попробуйте позже.")
+    except Exception:
+        logger.exception("Error processing passport hash=%s", sha256(raw))
+        await message.answer("Произошла ошибка при запросе данных. Попробуйте позже.")
+    finally:
+        await state.set_state(None)
 
 
 # -- Авто ----------------------------------------------------------- #
@@ -177,13 +190,17 @@ async def process_vehicle(message: Message, state: FSMContext, dadata_service: D
         return
 
     await message.answer("🚗 Проверяю авто…")
-    data = await dadata_service.clean_vehicle(raw)
-
-    if data:
-        await message.answer(format_vehicle(data), reply_markup=get_check_again_keyboard("vehicle"))
-    else:
-        await message.answer("Не удалось проверить авто. Попробуйте позже.")
-    await state.set_state(None)
+    try:
+        data = await dadata_service.clean_vehicle(raw)
+        if data:
+            await message.answer(format_vehicle(data), reply_markup=get_check_again_keyboard("vehicle"))
+        else:
+            await message.answer("Не удалось проверить авто. Попробуйте позже.")
+    except Exception:
+        logger.exception("Error processing vehicle raw=%s", raw)
+        await message.answer("Произошла ошибка при запросе данных. Попробуйте позже.")
+    finally:
+        await state.set_state(None)
 
 
 # ------------------------------------------------------------------ #
